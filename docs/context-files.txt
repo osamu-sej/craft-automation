@@ -1,0 +1,22 @@
+# AIエージェントに読み込ませるファイル（優先度順）
+# --- craft-automation ---
+docs/requirements.md
+docs/upstream-tracking.md
+README.md
+.github/workflows/upstream-watch.yml
+.github/workflows/smoke.yml
+scripts/fetch-photocraft.sh
+scripts/smoke.sh
+.photocraft-version
+.upstream/watched-paths.txt
+docs/commands.md
+docs/upgrade-log.md
+mcp/README.md
+.gitignore
+# --- storytold/photocraft（docs/upstream-snapshot/ に検証版タグ付きで配置）---
+upstream:README.md
+upstream:docs/control-protocol.md
+upstream:AGENTS.md
+upstream:docs/parity.md
+upstream:docs/roadmap.md
+upstream:photocraft-cli の batch/mcp/run のCLI定義とアクションリスト型定義（パスは本家で確認）

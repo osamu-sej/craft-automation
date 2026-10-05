@@ -1,0 +1,51 @@
+name: smoke
+# 固定バージョン(pinned)と最新(latest)の両方でレシピを実行し、破壊的変更を検知する
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: '30 0 * * *'
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [pinned, latest]
+    # latest の失敗は「破壊的変更の検知」であり CI 全体は赤にしない
+    continue-on-error: ${{ matrix.target == 'latest' }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: タグ解決
+        id: tag
+        run: |
+          if [ "${{ matrix.target }}" = "pinned" ]; then
+            echo "tag=$(cat .photocraft-version)" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=$(gh release list -R storytold/photocraft --limit 1 --json tagName -q '.[0].tagName')" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: 取得
+        id: fetch
+        run: echo "cli=$(scripts/fetch-photocraft.sh '${{ steps.tag.outputs.tag }}' .bin)" >> "$GITHUB_OUTPUT"
+
+      - name: スモークテスト
+        run: scripts/smoke.sh '${{ steps.fetch.outputs.cli }}'
+
+      - name: latest 失敗を Issue 化（定期実行時のみ）
+        if: failure() && matrix.target == 'latest' && github.event_name == 'schedule'
+        run: |
+          TAG='${{ steps.tag.outputs.tag }}'
+          TITLE="[upstream] smoke failed on latest ($TAG)"
+          [ -n "$(gh issue list --state all --search "\"$TITLE\" in:title" --json number -q '.[0].number')" ] && exit 0
+          gh issue create --title "$TITLE" --label upstream \
+            --body "最新版 $TAG でレシピが失敗しました。破壊的変更の可能性。\n実行: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" || true

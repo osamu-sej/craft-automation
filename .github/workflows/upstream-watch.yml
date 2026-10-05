@@ -1,0 +1,61 @@
+name: upstream-watch
+# 本家 storytold/photocraft の更新を検知して Issue 化する
+on:
+  schedule:
+    - cron: '0 0 * * *'   # 毎日 09:00 JST
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      UP: storytold/photocraft
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 新リリースの検知
+        run: |
+          set -euo pipefail
+          PIN="$(cat .photocraft-version)"
+          LATEST="$(gh release list -R "$UP" --limit 1 --json tagName -q '.[0].tagName')"
+          echo "pinned=$PIN latest=$LATEST"
+          [ "$PIN" = "$LATEST" ] && exit 0
+          TITLE="[upstream] release $LATEST (pinned: $PIN)"
+          if [ -n "$(gh issue list --state all --search "\"$TITLE\" in:title" --json number -q '.[0].number')" ]; then
+            echo "既存Issueあり"; exit 0
+          fi
+          N="$(gh api "repos/$UP/compare/$PIN...$LATEST" -q '.total_commits' 2>/dev/null || echo '?')"
+          gh issue create --title "$TITLE" --label upstream --body "$(cat <<BODY
+          本家に新しいリリースがあります。
+          - Release: https://github.com/$UP/releases/tag/$LATEST
+          - Diff: https://github.com/$UP/compare/$PIN...$LATEST （コミット数: $N）
+
+          ## 対応手順（docs/upstream-tracking.md）
+          - [ ] smoke (latest) の結果を確認
+          - [ ] リリースノート / control-protocol の差分を確認
+          - [ ] docs/commands.md・actions/ を修正
+          - [ ] .photocraft-version を更新、docs/upgrade-log.md に追記
+          BODY
+          )" || gh issue create --title "$TITLE" --body "upstream release $LATEST. see docs/upstream-tracking.md"
+
+      - name: 監視対象ファイルの変更検知
+        run: |
+          set -euo pipefail
+          while read -r p; do
+            [ -z "$p" ] && continue
+            SHA="$(gh api "repos/$UP/commits?path=$p&per_page=1" -q '.[0].sha' || true)"
+            [ -z "$SHA" ] && continue
+            KEY="$(echo "$p" | tr '/.' '__')"
+            REC=".upstream/$KEY.sha"
+            [ -f "$REC" ] && [ "$(cat "$REC")" = "$SHA" ] && continue
+            S7="${SHA:0:7}"
+            TITLE="[upstream] $p changed ($S7)"
+            if [ -n "$(gh issue list --state all --search "\"$TITLE\" in:title" --json number -q '.[0].number')" ]; then continue; fi
+            gh issue create --title "$TITLE" --label upstream \
+              --body "監視対象 \`$p\` に変更があります。\nhttps://github.com/$UP/commits/main/$p\n\n確認後、.upstream/$KEY.sha に \`$SHA\` を記録してください。" || true
+          done < .upstream/watched-paths.txt

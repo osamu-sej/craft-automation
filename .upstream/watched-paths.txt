@@ -1,0 +1,5 @@
+docs/control-protocol.md
+docs/parity.md
+docs/roadmap.md
+AGENTS.md
+README.md
