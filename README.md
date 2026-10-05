@@ -21,6 +21,7 @@ craft-automation/
 ├── .upstream/          # 本家の監視対象リスト・記録SHA
 ├── .photocraft-version # 検証済み本家バージョン（ピン）
 └── docs/       # 追跡設計・コマンド一覧・アップグレード履歴
+    └── upstream-snapshot/<tag>/  # 版ごとの本家資料（scripts/snapshot-upstream.sh で生成）
 ```
 
 ## 前提
@@ -48,9 +49,10 @@ photocraft-cli mcp
 要件定義は [docs/requirements.md](docs/requirements.md)。エージェントに渡すファイルは [docs/context-files.txt](docs/context-files.txt)。
 
 ## 検証TODO
-- [ ] 本家 `docs/control-protocol.md` を読み、利用可能なコマンドを `docs/commands.md` に整理
-- [ ] アクションリストの JSON 形式を確定し、`actions/` に最初のレシピを追加
-- [ ] `photocraft-cli mcp` を Claude から接続し、公開ツール範囲を確認
+- [x] 本家 `docs/control-protocol.md` を読み、利用可能なコマンドを `docs/commands.md` に整理（全件は `photocraft-cli commands --json`）
+- [x] アクションリストの JSON 形式を確定し、`actions/` に最初のレシピを追加（`actions/grade.json`）
+- [x] `photocraft-cli mcp` の公開ツール範囲を確認（`mcp/README.md`）
+- [ ] `photocraft-cli mcp` を Claude から接続して操作を確認
 - [ ] 日本語テキスト描画の対応状況を確認
 
 ## 参考

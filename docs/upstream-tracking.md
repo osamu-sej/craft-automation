@@ -20,14 +20,19 @@ PhotoCraft は early alpha。コマンド名・JSON 形式は変わりうる前�
 1. Issue の Diff / リリースを確認
 2. smoke (latest) の失敗箇所を特定 → `actions/` と `docs/commands.md` を修正
 3. 監視対象ファイルの Issue は `.upstream/<key>.sha` に最新 SHA を記録
-4. `.photocraft-version` を更新、`docs/upgrade-log.md` に追記、Issue を閉じる
+4. `.photocraft-version` を更新、`scripts/snapshot-upstream.sh <新タグ>` でスナップショットを作り直し、`docs/upgrade-log.md` に追記、Issue を閉じる
 
 ## 設計上の注意
 - レシピを直書きせず `scripts/` のラッパー層を介すと、名前変更の影響を局所化できる
 - Issue は件名で重複排除（同じ版・同じコミットで再起票しない）
 - 本家はリリースノートが薄いため、**Diff（commits）と文書変更**を一次情報とする
 
-## 要検証（実装時の仮定）
-- リリース asset 名 `*linux-x86_64.tar.gz` と、展開後に `photocraft-cli` が含まれること
-- `photocraft-cli --version` の有無
-- batch のアクションリスト形式（`actions/` 最初のレシピ作成時に確定）
+## 検証結果（2026-10-05。旧「要検証」）
+- リリース asset: `photocraft-<version>-linux-<arch>.tar.gz`、展開後は `photocraft-<version>-linux-<arch>/bin/photocraft-cli`。`SHA256SUMS.txt` で検証する（`scripts/fetch-photocraft.sh`）
+- `photocraft-cli --version` あり（版・コミット・ビルド日）
+- batch のアクションリスト形式: `[{"command", "params"}]` または `{"actions": [...]}`（`actions/grade.json`）
+- 詳細と根拠は `docs/requirements.md` §9、資料は `docs/upstream-snapshot/<tag>/`
+
+## 検知の限界
+- CLI は params を検証しないため、params のキー名が変わってもスモークは成功する。ピン更新時は `scripts/snapshot-upstream.sh <新タグ>` を実行し、`generated/commands.json` の差分でレシピの使用コマンドを確認する
+- 監視対象には CLI 定義（`apps/photocraft-cli/src/lib.rs`）と MCP ツール定義（`crates/automation/src/server.rs`）も含める。batch の形式（`parse_actions`）と MCP ツールの正本は文書ではなく実装にある

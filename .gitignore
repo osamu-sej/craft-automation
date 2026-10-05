@@ -30,4 +30,4 @@ samples/out/*
 
 # CI / ローカル実行の生成物
 .bin/
-out/
+/out/

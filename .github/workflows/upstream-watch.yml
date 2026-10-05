@@ -18,6 +18,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # ラベルが無いと --label 付きの gh issue create が失敗し、Issue が作られない
+      - name: upstream ラベルを用意
+        run: gh label create upstream --color d93f0b --description '本家 storytold/photocraft の更新' --force
+
       - name: 新リリースの検知
         run: |
           set -euo pipefail
@@ -41,7 +45,7 @@ jobs:
           - [ ] docs/commands.md・actions/ を修正
           - [ ] .photocraft-version を更新、docs/upgrade-log.md に追記
           BODY
-          )" || gh issue create --title "$TITLE" --body "upstream release $LATEST. see docs/upstream-tracking.md"
+          )"
 
       - name: 監視対象ファイルの変更検知
         run: |
@@ -57,5 +61,5 @@ jobs:
             TITLE="[upstream] $p changed ($S7)"
             if [ -n "$(gh issue list --state all --search "\"$TITLE\" in:title" --json number -q '.[0].number')" ]; then continue; fi
             gh issue create --title "$TITLE" --label upstream \
-              --body "監視対象 \`$p\` に変更があります。\nhttps://github.com/$UP/commits/main/$p\n\n確認後、.upstream/$KEY.sha に \`$SHA\` を記録してください。" || true
+              --body "$(printf '監視対象 `%s` に変更があります。\n%s\n\n確認後、.upstream/%s.sha に `%s` を記録してください。' "$p" "https://github.com/$UP/commits/main/$p" "$KEY" "$SHA")"
           done < .upstream/watched-paths.txt
