@@ -1,0 +1,31 @@
+name: app
+# Streamlit アプリのテスト。利用者の環境（macOS / Windows）と Linux で、
+# 本家リリースの取得・展開・batch 実行まで確かめる（tests/ の integration を含む）
+on:
+  push:
+    paths: ['app/**', 'tests/**', 'actions/**', 'requirements*.txt', '.github/workflows/app.yml']
+  pull_request:
+    paths: ['app/**', 'tests/**', 'actions/**', 'requirements*.txt', '.github/workflows/app.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+        python: ['3.12']
+        include:
+          - os: ubuntu-latest
+            python: '3.10'  # 対応する最小版
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: python -m pip install -r requirements-dev.txt
+      - run: python -m pytest -q

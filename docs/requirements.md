@@ -8,7 +8,7 @@
 - **目的**: PhotoCraft（early alpha）のCLI/MCPを使った画像処理自動化を、CLI・YAML・Issue運用なしで回せるようにする。
 - **In**: レシピ管理 / batch実行 / スモークテスト(pinned vs latest) / 本家更新監視 / MCP接続支援 / コマンド台帳 / アップグレード履歴。
 - **Out**: 画像編集UI本体、PhotoCraft の再実装・同梱改変、クラウド同期、複数ユーザー運用。
-- **ユーザー**: 単一ユーザー（ローカル利用）。主環境は macOS、Windows/Linux は Should。
+- **ユーザー**: 単一ユーザー（ローカル利用）。macOS と Windows の両方（ADR 0001）。Linux は Should。
 
 ## 2. 忠実性の定義（トレーサビリティ）
 リポジトリの各要素を、アプリの機能に1対1で対応させる。**対応が取れない機能は追加しない。**
@@ -94,7 +94,7 @@
 ## 4. 非機能要件
 | 区分 | 要件 |
 |---|---|
-| 配布 | デスクトップアプリ（macOS必須）。単一バイナリ配布 |
+| 配布 | ~~単一バイナリ配布~~ → ローカルのブラウザ UI。Python 3.10+ が必要で、依存は初回起動時に自動導入（ADR 0001） |
 | オフライン | GitHub API以外は完全ローカル。画像・レシピを外部送信しない |
 | セキュリティ | GitHubトークンはOSキーチェーン保存。ログ・レシピに秘匿情報を書かない。PhotoCraft の制御トークンはファイル（0600）で渡し、コマンドラインに直接書かない。取得バイナリは SHA256 検証 |
 | 耐変更性 | PhotoCraft依存部は**アダプタ層1か所**に隔離（コマンド名・JSON形式・asset名・CLI引数） |
@@ -103,12 +103,14 @@
 | 可観測性 | 外部コマンド失敗時は実行コマンド全文・終了コード・stderrを表示 |
 | テスト | アダプタ層はモックCLIで単体テスト。FR-04は実バイナリで結合テスト |
 
-## 5. 推奨アーキテクチャ（要ADR）
-- **推奨**: Tauri 2（Rust）+ TypeScript UI。理由: PhotoCraft自体がRust製で、同一スタックでバイナリ取得・サブプロセス制御が書きやすく、配布が軽い。
+## 5. アーキテクチャ
+- **決定（2026-10-05、[ADR 0001](adr/0001-app-stack.md)）**: Python + Streamlit。起動は `run-app.command`（macOS）/ `run-app.bat`（Windows）。実装は `app/`、使い方は [app.md](app.md)。
+- 当初の推奨案: Tauri 2（Rust）+ TypeScript UI。理由: PhotoCraft自体がRust製で、同一スタックでバイナリ取得・サブプロセス制御が書きやすく、配布が軽い。
 - 層: UI → アプリサービス（レシピ/実行/更新追跡）→ **PhotoCraftアダプタ** → `photocraft-cli`(subprocess) / GitHub REST。
 - アダプタの実装候補: FR-03 は `photocraft-cli batch`（CLI互換を FR-09 で保証できる）。1ファイルずつの細かい制御が必要になった場合は `photocraft-cli serve`（stdio の JSON lines、1セッション維持、`batch` メソッドあり）も使える。
 - 永続化: 実行履歴のみSQLite（アプリデータ領域）。それ以外の正本は**リポジトリのファイル**。
-- 代替案（要比較）: Python+Streamlit（最短で動く試作向き。配布性は劣る）。
+- 代替案だった Python+Streamlit を採用（最短で動き、macOS / Windows を1つのコードで扱える。配布性の差は ADR 0001 に記録）。
+- 対応: アダプタ層 = `app/craft_app/photocraft.py`（本家依存の知識）と `releases.py`、レシピ = `recipes.py`、実行と履歴 = `jobs.py`、画面 = `app/views/`。
 
 ## 6. データモデル（概念）
 - `Recipe`: name, path, json, tested_with, last_result
@@ -128,6 +130,7 @@
 - **P0（1〜2日）**: 本家 `docs/control-protocol.md` 等の読解、batch JSON形式の確定、アダプタ層のI/F定義。
   - 2026-10-05: 読解と §9 の確定は完了（スナップショット `docs/upstream-snapshot/v0.2.0/`）。残りはアダプタ層の I/F 定義。
 - **P1 MVP**: FR-01, 02, 03, 09
+  - 2026-10-05: 実装済み（Streamlit。テストは `tests/`、macOS / Windows / Linux の CI は `.github/workflows/app.yml`）。FR-03 の入出力比較（Should）も実装。ピンの更新は FR-06（P3）まで手作業
 - **P2**: FR-04, 05（更新追跡の中核）
 - **P3**: FR-06, 07, 08、Issue自動起票
 

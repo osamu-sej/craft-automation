@@ -1,0 +1,9 @@
+# requirements.md §4: GitHub API 以外は外部と通信しない。自分の PC からだけ開ける。
+[browser]
+gatherUsageStats = false
+
+[server]
+address = "localhost"
+
+[client]
+toolbarMode = "minimal"  # ローカル専用アプリなので Deploy ボタン等を出さない

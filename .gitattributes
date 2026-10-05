@@ -1,0 +1,2 @@
+# cmd.exe は LF 改行のバッチで誤動作することがある
+*.bat text eol=crlf
