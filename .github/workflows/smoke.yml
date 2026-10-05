@@ -36,7 +36,10 @@ jobs:
 
       - name: 取得
         id: fetch
-        run: echo "cli=$(scripts/fetch-photocraft.sh '${{ steps.tag.outputs.tag }}' .bin)" >> "$GITHUB_OUTPUT"
+        # 代入で受けると取得失敗でこのステップが落ちる（echo "$(…)" では失敗が握りつぶされる）
+        run: |
+          cli="$(scripts/fetch-photocraft.sh '${{ steps.tag.outputs.tag }}' .bin)"
+          echo "cli=$cli" >> "$GITHUB_OUTPUT"
 
       - name: スモークテスト
         run: scripts/smoke.sh '${{ steps.fetch.outputs.cli }}'
