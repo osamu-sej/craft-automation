@@ -47,5 +47,6 @@ jobs:
           TAG='${{ steps.tag.outputs.tag }}'
           TITLE="[upstream] smoke failed on latest ($TAG)"
           [ -n "$(gh issue list --state all --search "\"$TITLE\" in:title" --json number -q '.[0].number')" ] && exit 0
+          gh label create upstream --color d93f0b --description '本家 storytold/photocraft の更新' --force
           gh issue create --title "$TITLE" --label upstream \
-            --body "最新版 $TAG でレシピが失敗しました。破壊的変更の可能性。\n実行: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" || true
+            --body "$(printf '最新版 %s でレシピが失敗しました。破壊的変更の可能性。\n実行: %s' "$TAG" "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID")"
