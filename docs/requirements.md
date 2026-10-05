@@ -141,7 +141,7 @@
 | Q3 | MCP の公開ツールと認証 | 18 ツール（両版同じ）。v0.2.0 からファイルアクセスにルート指定が必須、ブリッジにトークン認証。詳細は `mcp/README.md` | `crates/automation/src/server.rs`、`docs/control-protocol.md`、実機の tools/list |
 | Q4 | バージョン取得手段 | `photocraft-cli --version` → `photocraft-cli 0.2.0 (ad8632173, 2026-10-05)`（版・コミット・ビルド日） | `lib.rs`、実機 |
 | Q5 | 本家の API 安定性方針 | 明文化された方針はない（early alpha）。0.x の minor 版で破壊的変更が入る（v0.2.0 の MCP ファイルアクセス）。リリースはドラフト作成後に手動公開。`-rc.N` はプレリリース | `README.md`、`docs/releasing.md`、v0.1.1→v0.2.0 の差分 |
-| Q6 | GitHub Actions ワークフローの実機検証 | **未完了**。静的な不具合（実行権限なし、ラベル未作成時の Issue 消失、スモーク入力なし）は修正済み。`smoke.yml` は push 時の実行結果で確認する | - |
+| Q6 | GitHub Actions ワークフローの実機検証 | `smoke.yml`: **確認済み**（pinned / latest とも取得・SHA256 検証・grade レシピ成功。latest は `gh release list` で v0.2.0 に解決）。取り込み直後は実行権限なしで失敗していた（修正済み）。`upstream-watch.yml`: **未実行**（schedule / 手動実行のみ。初回実行で監視対象ごとに Issue が起票される） | Actions run 37375408633（2026-10-05） |
 
 ### v0.1.1 → v0.2.0 の主な変化（ピン更新の判断材料）
 - CLI の `run` / `batch` / `--version` は互換（スモークは両版で成功）
