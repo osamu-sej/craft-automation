@@ -12,11 +12,18 @@ scripts/smoke.sh
 docs/commands.md
 docs/upgrade-log.md
 mcp/README.md
+actions/grade.json
+scripts/snapshot-upstream.sh
 .gitignore
-# --- storytold/photocraft（docs/upstream-snapshot/ に検証版タグ付きで配置）---
+# --- storytold/photocraft（docs/upstream-snapshot/<tag>/ 配下。scripts/snapshot-upstream.sh <tag> で生成）---
 upstream:README.md
 upstream:docs/control-protocol.md
 upstream:AGENTS.md
 upstream:docs/parity.md
 upstream:docs/roadmap.md
-upstream:photocraft-cli の batch/mcp/run のCLI定義とアクションリスト型定義（パスは本家で確認）
+upstream:apps/photocraft-cli/src/lib.rs
+upstream:crates/automation/src/server.rs
+snapshot:generated/commands.json
+snapshot:generated/mcp-tools.json
+snapshot:generated/release-assets.txt
+# snapshot: は本家にはなく、snapshot-upstream.sh がリリースバイナリから生成するファイル

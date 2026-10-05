@@ -3,3 +3,5 @@ docs/parity.md
 docs/roadmap.md
 AGENTS.md
 README.md
+apps/photocraft-cli/src/lib.rs
+crates/automation/src/server.rs
