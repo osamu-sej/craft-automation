@@ -22,6 +22,7 @@ requirements.md §5 は Tauri 2（Rust）+ TypeScript を推奨とし、Python +
 | §4 性能「起動 3 秒以内」 | 可 | 2回目以降は数秒。初回は依存の導入で数分 |
 | フォルダ選択 | OS のダイアログ | パスの入力（Streamlit にフォルダ選択がない） |
 | §4 セキュリティ | アプリ内に閉じる | ローカル HTTP サーバー。`server.address = localhost` で外から開けないようにし、利用統計送信を切る（`.streamlit/config.toml`） |
+| FR-05 変更時の OS 通知 | 可 | サイドバーに確認待ち件数を出す（起動時と 24 時間ごとに確認）。Streamlit には OS 通知を出す標準の手段がない |
 | §4 GitHub トークンを OS キーチェーンへ | 可 | P1 では未使用（未認証 API と git で足りる）。Issue 起票（P3）で必要になったら keyring で対応する |
 
 ## 見直す条件

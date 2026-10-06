@@ -10,7 +10,8 @@ import pytest
 import streamlit as st
 from streamlit.testing.v1 import AppTest
 
-from craft_app import photocraft, releases
+from craft_app import photocraft, releases, upstream
+from conftest import write_mock_cli
 
 HERE = Path(__file__).resolve().parent
 TAG = "v9.9.9"
@@ -23,16 +24,10 @@ def repo(tmp_path, repo_root, monkeypatch):
         shutil.copytree(repo_root / d, root / d)
     shutil.copy(repo_root / ".photocraft-version", root / ".photocraft-version")
     # この OS で直接起動できるモック CLI を「導入済みの版」として置く
-    exe = "photocraft-cli.bat" if os.name == "nt" else "photocraft-cli"
+    exe = write_mock_cli(root / ".bin" / TAG / "mock" / "photocraft-cli").name
     monkeypatch.setattr(photocraft, "asset_for", lambda tag, *a: photocraft.Asset("mock.zip", f"mock/{exe}", "zip"))
-    cli = root / ".bin" / TAG / "mock" / exe
-    cli.parent.mkdir(parents=True)
-    if os.name == "nt":
-        cli.write_text(f'@"{sys.executable}" "{HERE / "mock_cli.py"}" %*\n', encoding="utf-8")  # Windows ではテキストモードで CRLF になる
-    else:
-        cli.write_text(f'#!/bin/sh\nexec "{sys.executable}" "{HERE / "mock_cli.py"}" "$@"\n', encoding="utf-8")
-        cli.chmod(0o755)
     monkeypatch.setattr(releases, "list_releases", lambda: ([releases.Release("v10.0.0", False, "2026-10-05T00:00:00Z"), releases.Release(TAG, False)], "テスト"))
+    monkeypatch.setenv("CRAFT_UPSTREAM_AUTO", "0")  # テスト中に本家へ自動で問い合わせない
     monkeypatch.setenv("CRAFT_REPO", str(root))
     monkeypatch.setenv("CRAFT_APP_DATA", str(tmp_path / "data"))
     st.cache_resource.clear()
@@ -135,3 +130,57 @@ def test_recipes_editor_reloads_file_changed_elsewhere(repo):
     at.run()
     assert "smartSharpen" in at.text_area[0].value  # 編集中の内容は消さない
     assert any("別の場所で変更されました" in w.value for w in at.warning)
+
+
+@pytest.fixture
+def repo_p2(repo):
+    """最新版 v10.0.0 も導入済み。ただし全レシピが失敗する（破壊的変更の入った版のふり）。"""
+    write_mock_cli(repo / ".bin" / "v10.0.0" / "mock" / "photocraft-cli", fail=True)
+    return repo
+
+
+def test_smoke_page_detects_breaking_change(repo_p2, monkeypatch):
+    monkeypatch.setattr(releases, "list_releases", lambda: ([releases.Release("v10.0.0", False), releases.Release("v0.2.0", False)], "テスト"))
+    write_mock_cli(repo_p2 / ".bin" / "v0.2.0" / "mock" / "photocraft-cli")  # ピン版は正常
+    at = _page("smoke_page.render")
+    assert not at.error
+    next(b for b in at.button if b.label == "スモークテストを実行").click().run()
+    run = at.session_state["smoke_run"]
+    end = time.time() + 30
+    while not run.verdict and time.time() < end:
+        time.sleep(0.1)
+    at.run()
+    assert not at.exception
+    assert any("破壊的変更があります" in e.value for e in at.error)  # 受け入れ基準 4
+    table = at.dataframe[0].value
+    assert table["判定"].tolist() == ["破壊的変更"] and table["v10.0.0"].tolist() == ["失敗"]
+    assert at.dataframe[1].value["判定"].tolist() == ["破壊的変更"]  # これまでの結果
+
+
+def test_smoke_page_requires_installed_versions(repo):
+    at = _page("smoke_page.render")  # ピン v0.2.0 も最新 v10.0.0 も未導入
+    assert any("未導入の版があります" in w.value for w in at.warning)
+    assert next(b for b in at.button if b.label == "スモークテストを実行").disabled
+
+
+def test_upstream_page_shows_changes_and_records_ack(repo_p2, monkeypatch):
+    c = upstream.Commit("a" * 40, "2026-10-05T10:00:00Z")
+
+    def fake_check(root, pinned, mirror):
+        s = upstream.Status("2026-10-06T09:00:00+09:00", pinned, "v10.0.0", newer=["v10.0.0"], commits=12, notes=["テスト"])
+        s.watched = [upstream.Watched(p, upstream.recorded_sha(root, p), c) for p in ["README.md", "AGENTS.md"]]
+        return s
+
+    monkeypatch.setattr(upstream, "check", fake_check)
+    at = _page("upstream_page.render")
+    assert any("まだ確認していません" in x.value for x in at.caption)
+    next(b for b in at.button if b.label == "今すぐ確認").click().run()
+    assert not at.exception
+    assert any("ピンより新しいリリース" in w.value for w in at.warning)
+    assert any("/compare/v0.2.0...v10.0.0" in m.value for m in at.markdown)  # 受け入れ基準 5
+    assert [m.value for m in at.metric][:3] == ["v0.2.0", "v10.0.0", "12"]
+    next(b for b in at.button if b.label == "確認済みにする").click().run()
+    assert (repo_p2 / ".upstream" / "README_md.sha").read_text(encoding="utf-8").strip() == "a" * 40
+    assert sum(b.label == "確認済みにする" for b in at.button) == 1  # AGENTS.md だけ残る
+    # コマンド台帳: ピンはスナップショット、最新はモック（同じ内容）→ 影響なし
+    assert any("削除・書式変更はありません" in x.value for x in at.success)

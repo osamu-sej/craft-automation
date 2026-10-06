@@ -6,6 +6,9 @@ import streamlit as st
 
 from . import common
 
+KIND = {"batch": "一括実行", "smoke": "スモーク"}
+
+
 def render() -> None:
     st.title("履歴")
     runs = common.history().runs()
@@ -15,6 +18,7 @@ def render() -> None:
     st.dataframe(
         [{
             "開始": common.when(r["started_at"]),
+            "種別": KIND.get(r["kind"], r["kind"]),
             "レシピ": r["recipe"],
             "版": r["tag"],
             "状態": common.STATUS_JA.get(r["status"], r["status"]),

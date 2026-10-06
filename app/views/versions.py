@@ -62,21 +62,7 @@ def render() -> None:
     else:
         tag = c1.text_input("導入する版（タグ）", pin or "", placeholder="例: v0.2.0")
     if c2.button("導入", type="primary", disabled=not tag, icon=":material/download:"):
-        bar = st.progress(0.0, text=f"{tag} を取得中…")
-
-        def progress(done: int, total: int) -> None:
-            bar.progress(min(done / total, 1.0) if total else 0.0, text=f"{tag} を取得中… {done / 1e6:.1f} / {total / 1e6:.1f} MB")
-
-        try:
-            got = releases.install(tag, repo.bin_dir, progress)
-        except releases.DownloadError as e:
-            bar.empty()
-            st.error(str(e))
-        except Exception as e:  # noqa: BLE001 - 原因をそのまま見せる（§4 可観測性）
-            bar.empty()
-            st.error(f"{tag} を導入できませんでした: {e}")
-        else:
-            bar.empty()
+        if (got := common.install_with_progress(tag)) is not None:
             common.flash("versions", "success", f"{tag} を導入しました: {common.version_of(got)}")
             st.rerun()
 
