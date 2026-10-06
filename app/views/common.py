@@ -7,7 +7,7 @@ from pathlib import Path
 
 import streamlit as st
 
-from craft_app import jobs, photocraft, recipes, releases, upstream
+from craft_app import issues, jobs, photocraft, recipes, releases, secrets, settings, upstream
 from craft_app.paths import Repo, app_data_dir, default_repo_root
 
 
@@ -29,14 +29,53 @@ def services() -> tuple[Repo, jobs.History, jobs.JobManager]:
     return repo, history, jobs.JobManager(history)
 
 
+def settings_path() -> Path:
+    return app_data_dir() / "settings.json"
+
+
+def app_settings() -> dict:
+    return settings.load(settings_path())
+
+
+def issue_repo() -> str:
+    """Issue の起票先 owner/repo（設定 → origin → 空）。"""
+    return app_settings()["issue_repo"] or settings.origin_slug(repo().root) or ""
+
+
+def issue_client() -> tuple[issues.GitHub | None, str]:
+    """起票に使うクライアント。使えないときは理由を返す（トークンの値は返さない）。"""
+    slug = issue_repo()
+    if not slug:
+        return None, "起票先のリポジトリ（owner/repo）が未設定です"
+    if (err := settings.check_slug(slug)) is not None:
+        return None, err
+    token, _ = secrets.get_token()
+    if not token:
+        return None, "GitHub トークンが未設定です"
+    return issues.GitHub(slug, token), ""
+
+
+def _check_and_file() -> upstream.Status:
+    """本家を確認し、自動起票がオンなら未起票の更新を起票する（FR-05）。"""
+    r = repo()
+    status = upstream.check(r.root, r.pinned(), app_data_dir() / "upstream.git")
+    if app_settings()["auto_issue"]:
+        gh, why = issue_client()
+        if gh is None:
+            status.notes.append(f"自動起票: {why}")
+        else:
+            try:
+                done = issues.sync(gh, issues.pending(status))
+                status.notes.append(f"自動起票: {sum(x.created for x in done)} 件を起票（{gh.slug}）")
+            except issues.GitHubError as e:
+                status.notes.append(f"自動起票に失敗: {e}")
+    return status
+
+
 @st.cache_resource
 def watcher() -> upstream.Watcher:
     """本家更新の確認（起動時と 24 時間ごと。FR-05）。CRAFT_UPSTREAM_AUTO=0 で自動確認を止める。"""
-    r = repo()
-    return upstream.Watcher(
-        lambda: upstream.check(r.root, r.pinned(), app_data_dir() / "upstream.git"),
-        auto=os.environ.get("CRAFT_UPSTREAM_AUTO", "1") != "0",
-    )
+    return upstream.Watcher(_check_and_file, auto=os.environ.get("CRAFT_UPSTREAM_AUTO", "1") != "0")
 
 
 def used_commands() -> set[str]:
