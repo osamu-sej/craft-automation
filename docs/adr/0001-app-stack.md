@@ -23,7 +23,8 @@ requirements.md §5 は Tauri 2（Rust）+ TypeScript を推奨とし、Python +
 | フォルダ選択 | OS のダイアログ | パスの入力（Streamlit にフォルダ選択がない） |
 | §4 セキュリティ | アプリ内に閉じる | ローカル HTTP サーバー。`server.address = localhost` で外から開けないようにし、利用統計送信を切る（`.streamlit/config.toml`） |
 | FR-05 変更時の OS 通知 | 可 | サイドバーに確認待ち件数を出す（起動時と 24 時間ごとに確認）。Streamlit には OS 通知を出す標準の手段がない |
-| §4 GitHub トークンを OS キーチェーンへ | 可 | P1 では未使用（未認証 API と git で足りる）。Issue 起票（P3）で必要になったら keyring で対応する |
+| §4 GitHub トークンを OS キーチェーンへ | 可 | Issue 起票（P3）で実装。keyring で macOS キーチェーン / Windows 資格情報マネージャーに保存する。使えない環境（Linux のコンテナなど）は環境変数 `GITHUB_TOKEN`。それ以外の機能はトークンなしで動く |
+| FR-07 MCP の起動/停止 | アプリが常駐させられる | MCP は標準入出力で話すので、サーバーはクライアントが起動する。アプリは設定の作成と「起動 → 確認 → 停止」の接続テストまで |
 
 ## 見直す条件
 - Python を入れられない利用者が出た、または単一バイナリでの配布が必要になったとき
