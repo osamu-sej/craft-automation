@@ -64,6 +64,7 @@ class SmokeRun:
     started_at: str = field(default_factory=lambda: datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds"))
     finished_at: str = ""
     verdict: str = ""
+    recipes_hash: str = ""  # 実行したときの全レシピの内容ハッシュ（ピン更新の確認に使う）
 
     @property
     def tags(self) -> list[str]:
@@ -99,8 +100,10 @@ def start(manager: JobManager, repo: Repo, pinned: Installed, latest: Installed 
         latest = None
     run = SmokeRun(uuid.uuid4().hex[:12], pinned, latest)
     in_dir = repo.root / "samples" / "smoke" / "in"
+    recs = recipes.list_recipes(repo.actions_dir)
+    run.recipes_hash = recipes.collection_hash(recs)
     for inst in [pinned] + ([latest] if latest else []):
-        for r in recipes.list_recipes(repo.actions_dir):
+        for r in recs:
             out = repo.root / "out" / "smoke" / inst.tag / r.name
             shutil.rmtree(out, ignore_errors=True)  # 前回の出力で成功と誤判定しない
             job = manager.start_batch(inst.cli, inst.tag, versions.get(inst.tag, ""), r.path, r.hash, in_dir, out,
@@ -117,6 +120,6 @@ def _finish(manager: JobManager, run: SmokeRun) -> None:
     verdict = overall([r["判定"] for r in rows])
     finished = datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds")
     manager.history.record_smoke(run.id, run.started_at, finished, run.pinned.tag,
-                                 run.latest.tag if run.latest else "", verdict, json.dumps(rows, ensure_ascii=False))
+                                 run.latest.tag if run.latest else "", verdict, json.dumps(rows, ensure_ascii=False), run.recipes_hash)
     run.finished_at = finished
     run.verdict = verdict  # 履歴に残してから公開する（画面は verdict を完了の印に使う）

@@ -38,7 +38,7 @@ cat > "$DEST/SOURCE.md" <<EOF
 # 本家スナップショット $TAG
 
 - 取得元: $UP/tree/$TAG （commit \`$SHA\`）
-- 生成: \`scripts/snapshot-upstream.sh $TAG\`（手で編集しない）
+- 生成: \`scripts/snapshot-upstream.sh $TAG\` またはアプリの「ピン更新」（手で編集しない）
 - ライセンス: 本家は MIT OR Apache-2.0。同梱の LICENSE-MIT / LICENSE-APACHE / NOTICE を参照
 
 | ファイル | 内容 |

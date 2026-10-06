@@ -1,7 +1,7 @@
 # 本家スナップショット v0.2.0
 
 - 取得元: https://github.com/storytold/photocraft/tree/v0.2.0 （commit `ad863217386440ca968fccc9bfff65ba24e61142`）
-- 生成: `scripts/snapshot-upstream.sh v0.2.0`（手で編集しない）
+- 生成: `scripts/snapshot-upstream.sh v0.2.0` またはアプリの「ピン更新」（手で編集しない）
 - ライセンス: 本家は MIT OR Apache-2.0。同梱の LICENSE-MIT / LICENSE-APACHE / NOTICE を参照
 
 | ファイル | 内容 |
