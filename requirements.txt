@@ -1,3 +1,4 @@
 # アプリの実行に必要なもの（app/launch.py が .venv に導入する）
 streamlit>=1.65,<2
 requests>=2.31
+keyring>=25
