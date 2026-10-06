@@ -9,21 +9,14 @@ import pytest
 
 from craft_app import jobs, photocraft, recipes, releases
 from craft_app.paths import Repo
+from conftest import write_mock_cli
 
 HERE = Path(__file__).resolve().parent
 
 
 @pytest.fixture
 def mock_cli(tmp_path) -> Path:
-    """tests/mock_cli.py を、OS ごとに直接起動できる形で包む。"""
-    if os.name == "nt":
-        cli = tmp_path / "photocraft-cli.bat"
-        cli.write_text(f'@"{sys.executable}" "{HERE / "mock_cli.py"}" %*\n', encoding="utf-8")  # Windows ではテキストモードで CRLF になる
-    else:
-        cli = tmp_path / "photocraft-cli"
-        cli.write_text(f'#!/bin/sh\nexec "{sys.executable}" "{HERE / "mock_cli.py"}" "$@"\n', encoding="utf-8")
-        cli.chmod(0o755)
-    return cli
+    return write_mock_cli(tmp_path / "photocraft-cli")
 
 
 @pytest.fixture

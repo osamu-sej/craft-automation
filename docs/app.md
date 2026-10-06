@@ -46,6 +46,27 @@ craft-automation の運用（レシピ管理・一括実行・PhotoCraft のバ�
 - 右の「コマンドを探す」で、使用バージョンのコマンド一覧（748 件）から ID・名前・メニューで探し、params の書式を見てレシピに追加できる
 - 保存したファイルはアプリなしでも使える: `photocraft-cli batch --actions actions/<名前>.json --in <入力> --out <出力>`
 
+## スモークテスト（ピン版と最新版の比較）
+1. 「**スモークテスト**」を開く。ピン版（`.photocraft-version`）と最新版が未導入なら「未導入の版を導入」
+2. 「**スモークテストを実行**」で、全レシピを `samples/smoke/in` に両方の版で適用する（出力は `out/smoke/<版>/<レシピ>`）
+3. 判定（docs/upstream-tracking.md の判定ルールと同じ）
+
+| ピン版 | 最新版 | 判定 |
+|---|---|---|
+| 成功 | 成功 | 互換（ピンを更新してよい） |
+| 成功 | 失敗 | **破壊的変更**。レシピと docs/commands.md を直す |
+| 失敗 | 成功 / 失敗 | 要確認（レシピか入力の問題） |
+
+成功しても params が効いているとは限らない（CLI は params を検証しない）。params のキー名の変更は「本家の更新」のコマンド台帳の差分で確認する。
+
+## 本家の更新
+- アプリの起動時と 24 時間ごとに本家を確認し、確認待ちがあるとサイドバーに「本家の更新を確認（N 件）」が出る
+- 「**本家の更新**」で見られるもの
+  - **リリース**: ピンより新しいリリース、差分のコミット数、GitHub の差分ページへのリンク
+  - **監視対象ファイル**（`.upstream/watched-paths.txt`）: 本家で最後に変わったコミットと、確認済みとして記録した SHA の比較。内容を確認したら「確認済みにする」で `.upstream/<key>.sha` に記録する（GitHub Actions の upstream-watch と同じファイル。コミットして共有する）
+  - **コマンド台帳の差分**: ピン版と最新版の `commands --json` の比較。レシピで使っているコマンドが削除・書式変更されていれば赤で出す
+- 本家の情報は GitHub API で取る。使えないときは、本家の履歴だけを持つ git の複製（ファイル本体は取らない）をアプリデータ領域に作って代用する（git が必要）
+
 ## 履歴
 「**履歴**」に全実行が残る（使用版、レシピ内容の SHA256、入出力パス、実行コマンド全文、終了コード、ログ）。保存先は次のとおり。
 
@@ -54,15 +75,17 @@ craft-automation の運用（レシピ管理・一括実行・PhotoCraft のバ�
 | macOS | `~/Library/Application Support/craft-automation/runs.sqlite` |
 | Windows | `%APPDATA%\craft-automation\runs.sqlite` |
 
+同じ場所に、本家の確認に使う git の複製（`upstream.git`）も置く。消しても次の確認で作り直す。
+
 ## 外部との通信
 - GitHub（本家のリリース一覧と CLI の取得）だけ。画像やレシピは外に送らない
 - アプリは自分の PC（localhost）からだけ開ける。Streamlit の利用統計送信は切ってある（`.streamlit/config.toml`）
 - リリース一覧は GitHub API（未認証で 1 時間 60 回まで）。使えないときは git のタグで代用する。環境変数 `GITHUB_TOKEN` があれば使う
 
-## まだできないこと（requirements.md §8 の P2 以降）
-- スモークテスト（pinned / latest の比較）: `scripts/smoke.sh` と GitHub Actions の smoke で代用
-- 本家更新ダッシュボード: GitHub Actions の upstream-watch（Issue）で代用
-- ピンの更新: [upstream-tracking.md](upstream-tracking.md) の手順で `.photocraft-version` を書き換える
+## まだできないこと（requirements.md §8 の P3）
+- ピンの更新（手順ウィザード）: [upstream-tracking.md](upstream-tracking.md) の手順で `.photocraft-version` を書き換え、`scripts/snapshot-upstream.sh <新タグ>` を実行する
+- GitHub Issue の自動起票: GitHub Actions の upstream-watch / smoke が行う
+- OS の通知: サイドバーの表示で代用（ADR 0001）
 - MCP 接続支援、コマンド台帳（`docs/commands.md`）の自動更新
 
 ## 困ったとき

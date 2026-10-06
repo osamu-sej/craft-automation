@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import streamlit as st
 
-from craft_app import jobs, photocraft, releases
+from craft_app import jobs, photocraft, recipes, releases, upstream
 from craft_app.paths import Repo, app_data_dir, default_repo_root
 
 
@@ -26,6 +27,38 @@ def services() -> tuple[Repo, jobs.History, jobs.JobManager]:
     repo = Repo(default_repo_root())
     history = jobs.History(app_data_dir() / "runs.sqlite")
     return repo, history, jobs.JobManager(history)
+
+
+@st.cache_resource
+def watcher() -> upstream.Watcher:
+    """本家更新の確認（起動時と 24 時間ごと。FR-05）。CRAFT_UPSTREAM_AUTO=0 で自動確認を止める。"""
+    r = repo()
+    return upstream.Watcher(
+        lambda: upstream.check(r.root, r.pinned(), app_data_dir() / "upstream.git"),
+        auto=os.environ.get("CRAFT_UPSTREAM_AUTO", "1") != "0",
+    )
+
+
+def used_commands() -> set[str]:
+    """レシピで使っているコマンド ID。"""
+    out: set[str] = set()
+    for r in recipes.list_recipes(repo().actions_dir):
+        out |= {s.command for s in recipes.validate(r.text).steps}
+    return out
+
+
+def registry_for(tag: str) -> tuple[dict[str, photocraft.Command] | None, str]:
+    """指定した版のコマンド台帳。導入済みならその CLI、なければスナップショット。"""
+    inst = {i.tag: i for i in installed()}
+    if tag in inst:
+        try:
+            return _registry(str(inst[tag].cli), inst[tag].cli.stat().st_mtime), f"{tag} の commands --json"
+        except Exception:  # noqa: BLE001 - スナップショットで代用する
+            pass
+    snap = repo().snapshot_dir / tag / "generated" / "commands.json"
+    if snap.is_file():
+        return photocraft.parse_registry(snap.read_text(encoding="utf-8")), f"スナップショット {tag}"
+    return None, ""
 
 
 def repo() -> Repo:
@@ -69,6 +102,26 @@ def version_of(inst: releases.Installed) -> str:
 @st.cache_data(show_spinner="コマンド台帳を読み込み中…")
 def _registry(cli: str, mtime: float) -> dict[str, photocraft.Command]:
     return photocraft.load_registry(Path(cli))
+
+
+def install_with_progress(tag: str) -> releases.Installed | None:
+    """tag を導入する。進捗を出し、失敗したら理由（URL・HTTP ステータス）を出して None を返す。"""
+    bar = st.progress(0.0, text=f"{tag} を取得中…")
+
+    def progress(done: int, total: int) -> None:
+        bar.progress(min(done / total, 1.0) if total else 0.0, text=f"{tag} を取得中… {done / 1e6:.1f} / {total / 1e6:.1f} MB")
+
+    try:
+        got = releases.install(tag, repo().bin_dir, progress)
+    except releases.DownloadError as e:
+        st.error(str(e))
+        return None
+    except Exception as e:  # noqa: BLE001 - 原因をそのまま見せる（§4 可観測性）
+        st.error(f"{tag} を導入できませんでした: {e}")
+        return None
+    finally:
+        bar.empty()
+    return got
 
 
 def installed() -> list[releases.Installed]:
@@ -124,6 +177,19 @@ def sidebar() -> None:
     )
     if pin and pin not in tags:
         st.sidebar.info(f"ピン {pin} は未導入です")
+
+
+def upstream_badge() -> None:
+    """サイドバーに本家更新の確認待ち件数を出す（OS 通知の代わり。ADR 0001）。"""
+    w = watcher()
+    if w.status is None:
+        st.sidebar.caption("本家の更新: 確認中…" if w.running else "本家の更新: 未確認")
+        return
+    n = upstream.apply_records(w.status, repo().root).pending
+    if n and "upstream" in PAGES:
+        st.sidebar.page_link(PAGES["upstream"], label=f"本家の更新を確認（{n} 件）", icon=":material/notifications_active:")
+    else:
+        st.sidebar.caption(f"本家の更新: 確認待ちなし（{when(w.status.checked_at)}）")
 
 
 def flash(scope: str, kind: str, msg: str) -> None:
