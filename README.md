@@ -8,7 +8,7 @@ Craft 系ツール（まず [PhotoCraft](https://github.com/storytold/photocraft
 - MCP 経由でエージェント（Claude 等）から編集を操作する検証環境を持つ
 
 ## アプリ（ブラウザ画面で使う）
-Python 3.10 以上を入れたうえで、macOS は `run-app.command`、Windows は `run-app.bat` をダブルクリックする。レシピ管理・一括実行・PhotoCraft の導入を画面で行える。詳しくは [docs/app.md](docs/app.md)。
+Python 3.10 以上を入れたうえで、macOS は `run-app.command`、Windows は `run-app.bat` をダブルクリックする。レシピ管理・一括実行・PhotoCraft の導入、スモークテスト（ピン版と最新版の比較）、本家の更新の確認と Issue 起票、ピン更新の手順、MCP 接続、コマンド台帳を画面で行える。詳しくは [docs/app.md](docs/app.md)。
 
 ## 構成
 ```

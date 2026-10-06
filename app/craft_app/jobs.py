@@ -19,6 +19,15 @@ from pathlib import Path
 from . import photocraft
 
 
+def kill_tree(proc: subprocess.Popen) -> None:
+    """プロセスを止める。Windows は子プロセスごと（.bat 経由の起動に備える）。"""
+    if os.name == "nt":
+        subprocess.run(["taskkill", "/F", "/T", "/PID", str(proc.pid)], capture_output=True,
+                       creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    else:
+        proc.terminate()
+
+
 def _now() -> str:
     return datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds")
 
@@ -84,6 +93,8 @@ class History:
                     id TEXT PRIMARY KEY, started_at TEXT, finished_at TEXT, pinned TEXT, latest TEXT,
                     verdict TEXT, detail TEXT)"""
             )
+            if "recipes_hash" not in {r["name"] for r in c.execute("PRAGMA table_info(smokes)")}:
+                c.execute("ALTER TABLE smokes ADD COLUMN recipes_hash TEXT NOT NULL DEFAULT ''")  # P2 で作った履歴に足す
 
     def _conn(self) -> sqlite3.Connection:
         c = sqlite3.connect(self.path)
@@ -112,9 +123,17 @@ class History:
                 out.setdefault(r["recipe"], r)
         return out
 
-    def record_smoke(self, id: str, started_at: str, finished_at: str, pinned: str, latest: str, verdict: str, detail: str) -> None:
+    def record_smoke(self, id: str, started_at: str, finished_at: str, pinned: str, latest: str, verdict: str, detail: str,
+                     recipes_hash: str = "") -> None:
         with self._conn() as c:
-            c.execute("INSERT OR REPLACE INTO smokes VALUES (?,?,?,?,?,?,?)", (id, started_at, finished_at, pinned, latest, verdict, detail))
+            c.execute("INSERT OR REPLACE INTO smokes(id, started_at, finished_at, pinned, latest, verdict, detail, recipes_hash) VALUES (?,?,?,?,?,?,?,?)",
+                      (id, started_at, finished_at, pinned, latest, verdict, detail, recipes_hash))
+
+    def latest_smoke(self, pinned: str, latest: str) -> dict | None:
+        """ピン版 → 最新版の組み合わせで、最後に実行したスモークテスト。"""
+        with self._conn() as c:
+            row = c.execute("SELECT * FROM smokes WHERE pinned=? AND latest=? ORDER BY started_at DESC LIMIT 1", (pinned, latest)).fetchone()
+        return dict(row) if row else None
 
     def smokes(self, limit: int = 50) -> list[dict]:
         with self._conn() as c:
@@ -185,8 +204,4 @@ class JobManager:
         job = self.jobs.get(job_id)
         if job and not job.done and job._proc:
             job.cancel_requested = True
-            if os.name == "nt":  # 子プロセスごと止める
-                subprocess.run(["taskkill", "/F", "/T", "/PID", str(job._proc.pid)], capture_output=True,
-                               creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
-            else:
-                job._proc.terminate()
+            kill_tree(job._proc)

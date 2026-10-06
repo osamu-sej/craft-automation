@@ -12,6 +12,38 @@ from pathlib import Path
 EXTS = {"png", "jpg", "psd"}
 
 
+TOOLS = [
+    {"name": "doc_open", "description": "Open a document", "inputSchema": {"type": "object"}},
+    {"name": "command_run", "description": "Run a command", "inputSchema": {"type": "object"}},
+]
+
+
+def mcp(argv):
+    """photocraft-cli mcp の真似。stdin の JSON-RPC 行に答える。--bridge はアプリがない想定で失敗する。"""
+    if "--bridge" in argv:
+        print("error: bridge connect 127.0.0.1: connection refused", file=sys.stderr)
+        return 1
+    if os.environ.get("MOCK_MCP_LATE_EXIT") == "1":
+        # 標準出力を先に閉じ、少ししてから失敗終了する（EOF の時点ではまだ終了コードが取れない）
+        print("error: late failure", file=sys.stderr, flush=True)
+        os.close(1)
+        time.sleep(1.0)
+        return 3
+    if os.environ.get("MOCK_MCP_HANG") == "1":
+        time.sleep(60)
+        return 0
+    for line in sys.stdin:
+        msg = json.loads(line)
+        if msg.get("method") == "initialize":
+            out = {"protocolVersion": "2025-06-18", "serverInfo": {"name": "photocraft", "version": "9.9.9"}, "capabilities": {}}
+        elif msg.get("method") == "tools/list":
+            out = {"tools": TOOLS}
+        else:
+            continue  # notifications には返さない
+        print(json.dumps({"jsonrpc": "2.0", "id": msg["id"], "result": out}), flush=True)
+    return 0
+
+
 def main(argv):
     # 本物の CLI と同じく UTF-8 で出す（Windows の既定は cp1252 など）
     sys.stdout.reconfigure(encoding="utf-8")
@@ -24,6 +56,8 @@ def main(argv):
         sys.stdout.write(snap.read_text(encoding="utf-8"))
         sys.stdout.flush()
         return 0
+    if argv[:1] == ["mcp"]:
+        return mcp(argv[1:])
     if argv[:1] != ["batch"]:
         print(f"error: unknown command `{argv[:1]}`", file=sys.stderr)
         return 2

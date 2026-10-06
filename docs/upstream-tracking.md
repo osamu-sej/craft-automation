@@ -22,6 +22,9 @@ PhotoCraft は early alpha。コマンド名・JSON 形式は変わりうる前�
 3. 監視対象ファイルの Issue は `.upstream/<key>.sha` に最新 SHA を記録
 4. `.photocraft-version` を更新、`scripts/snapshot-upstream.sh <新タグ>` でスナップショットを作り直し、`docs/upgrade-log.md` に追記、Issue を閉じる
 
+## アプリでの手順
+アプリの「ピン更新」ページは、上の 4 手順を飛ばせない形で進める（docs/app.md）。手作業でも、同じ内容を `.photocraft-version`・`docs/upgrade-log.md`・`.upstream/`・`scripts/snapshot-upstream.sh` で行える。
+
 ## 設計上の注意
 - レシピを直書きせず `scripts/` のラッパー層を介すと、名前変更の影響を局所化できる
 - Issue は件名で重複排除（同じ版・同じコミットで再起票しない）

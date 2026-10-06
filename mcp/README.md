@@ -36,6 +36,12 @@
 ```
 ツールに渡すパスはルートからの相対パス（例: `doc_open {"path": "in/a.png"}`）。v0.1.1 はこのオプションを黙って無視し、相対パスをカレントディレクトリ基準で解決するため、同じ設定でも挙動が変わる（v0.2.0 以降専用として扱う）。
 
+## アプリでの確認（実機: v0.2.0 / Linux）
+- 「MCP 接続」画面の接続テストで、`photocraft-cli mcp` を起動して initialize → tools/list を行い、18 ツールを確認した（保存: `mcp/tools-v0.2.0.json`）
+- **ルートのフォルダが無いと起動に失敗する**: `error: I/O: cannot open automation write root <パス>: No such file or directory`。読み取り・書き出しルートは先に作る（画面に「ルートのフォルダを作る」がある）
+- **ブリッジの `mcp` はルートを使わない**（`--bridge` のときは `--automation-*-root` を読まない。本家 `lib.rs` の `mcp`）。ルートは起動中アプリの `photocraft --control … --automation-read-root … --automation-write-root …` に渡す
+- ブリッジのトークンファイルが無いと `error: I/O: <パス>: No such file or directory` で終了する（アプリが先に起動してファイルを作る）
+
 ## 未検証
-- ブリッジモード（GUI アプリ起動が必要。Linux コンテナでは未実施）
+- ブリッジモードの正常系（GUI アプリ起動が必要。Linux コンテナでは未実施。異常系 = アプリ未起動は確認済み）
 - 日本語テキスト描画（`type.*` 系コマンド）

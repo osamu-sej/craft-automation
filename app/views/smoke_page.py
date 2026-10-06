@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import streamlit as st
 
-from craft_app import photocraft, recipes, releases, smoke
+from craft_app import issues, photocraft, recipes, releases, smoke
 
 from . import common
 
@@ -63,10 +63,7 @@ def render() -> None:
 
     if run is not None:
         st.divider()
-        if not run.verdict:
-            _live()
-        else:
-            _result(run)
+        show_run()
 
     past = common.history().smokes()
     if past:
@@ -76,6 +73,17 @@ def render() -> None:
             hide_index=True, width="stretch",
         )
     st.caption("CLI は params を検証しないため、成功しても params が効いているとは限りません。params のキー名の変更は「本家の更新」のコマンド台帳の差分で確認してください。")
+
+
+def show_run() -> None:
+    """session_state の直近のスモークテストを、進行中なら進捗、終わっていれば結果で表示する。"""
+    run: smoke.SmokeRun | None = st.session_state.get("smoke_run")
+    if run is None:
+        return
+    if not run.verdict:
+        _live()
+    else:
+        _result(run)
 
 
 @st.fragment(run_every=1.0)
@@ -102,3 +110,14 @@ def _result(run: smoke.SmokeRun) -> None:
             st.code(job.command, language=None, wrap_lines=True)
             st.code(job.log_text() or "（出力なし）", language=None)
     st.caption(f"出力: {common.rel(common.repo().root / 'out' / 'smoke')}/<版>/<レシピ>")
+    if run.verdict == smoke.BREAKING and run.latest:
+        gh, why = common.issue_client()
+        issue = issues.smoke_issue(run.latest.tag, run.table(mgr))
+        if st.button("Issue を起票", disabled=gh is None, help=why or issue.title, icon=":material/bug_report:"):
+            try:
+                (res,) = issues.sync(gh, [issue])
+            except issues.GitHubError as e:
+                st.error(str(e))
+            else:
+                common.flash("smoke", "success", f"[#{res.number}]({res.url}) {'を起票しました' if res.created else 'は起票済みです'}")
+                st.rerun()

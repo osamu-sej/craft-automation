@@ -165,6 +165,19 @@ def param_keys(params_doc: str) -> set[str] | None:
     return set(re.findall(r'"(\w+)"\s*:', params_doc))
 
 
+_SEMVER = re.compile(r"^v?(\d+)\.(\d+)\.(\d+)")
+
+
+def supports_automation_roots(tag: str) -> bool:
+    """`mcp` / `serve` の --automation-read-root / --automation-write-root が効く版か。
+
+    v0.2.0 で追加（v0.1.1 はオプションを黙って無視し、絶対パスも通る。mcp/README.md）。
+    v0.2.0 より前の版は「効かない」、以降は「効く」とみなす。
+    """
+    m = _SEMVER.match(tag)
+    return bool(m) and tuple(int(x) for x in m.groups()) >= (0, 2, 0)
+
+
 # ---- アクションリスト ----------------------------------------------------------
 
 

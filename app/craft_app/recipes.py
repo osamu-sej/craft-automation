@@ -85,6 +85,11 @@ def content_hash(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
+def collection_hash(recs: list[Recipe]) -> str:
+    """全レシピをまとめた内容ハッシュ。レシピが 1 つでも変わる・増減すると変わる。"""
+    return hashlib.sha256("\n".join(f"{r.name}\t{r.hash}" for r in sorted(recs, key=lambda r: r.name)).encode("utf-8")).hexdigest()
+
+
 def list_recipes(actions_dir: Path) -> list[Recipe]:
     if not actions_dir.is_dir():
         return []
