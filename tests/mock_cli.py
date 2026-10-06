@@ -23,6 +23,12 @@ def mcp(argv):
     if "--bridge" in argv:
         print("error: bridge connect 127.0.0.1: connection refused", file=sys.stderr)
         return 1
+    if os.environ.get("MOCK_MCP_LATE_EXIT") == "1":
+        # 標準出力を先に閉じ、少ししてから失敗終了する（EOF の時点ではまだ終了コードが取れない）
+        print("error: late failure", file=sys.stderr, flush=True)
+        os.close(1)
+        time.sleep(1.0)
+        return 3
     if os.environ.get("MOCK_MCP_HANG") == "1":
         time.sleep(60)
         return 0

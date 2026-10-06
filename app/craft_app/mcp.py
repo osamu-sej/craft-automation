@@ -115,8 +115,10 @@ def probe(cli: Path | str, args: list[str], timeout: float = 30) -> Probe:
             lines.put(ln)
         lines.put(None)
 
-    threading.Thread(target=pump_out, daemon=True).start()
-    threading.Thread(target=lambda: err.extend(proc.stderr), daemon=True).start()
+    t_out = threading.Thread(target=pump_out, daemon=True)
+    t_err = threading.Thread(target=lambda: err.extend(proc.stderr), daemon=True)
+    t_out.start()
+    t_err.start()
 
     def fail(msg: str) -> ProbeError:
         jobs.kill_tree(proc)
@@ -124,6 +126,7 @@ def probe(cli: Path | str, args: list[str], timeout: float = 30) -> Probe:
             proc.wait(timeout=5)
         except subprocess.TimeoutExpired:
             pass
+        t_err.join(timeout=2)  # 終了直前に出た標準エラーも読み切ってから、メッセージにする
         text = "".join(err).strip()
         return ProbeError(f"{msg}" + (f"\n{text}" if text else ""))
 
@@ -141,7 +144,11 @@ def probe(cli: Path | str, args: list[str], timeout: float = 30) -> Probe:
             except queue.Empty:
                 raise fail(f"{timeout:g} 秒以内に応答がありません") from None
             if ln is None:
-                code = proc.poll()
+                # 標準出力が閉じた直後は、まだ終了コードを回収できていないことがある（Windows で実際に起きた）
+                try:
+                    code = proc.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    code = proc.poll()
                 raise fail(f"サーバーが終了しました（終了コード {code}）")
             try:
                 msg = json.loads(ln)

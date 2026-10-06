@@ -51,6 +51,14 @@ def test_probe_reports_exit_and_stderr(tmp_path):
     assert "終了コード 1" in str(e.value) and "connection refused" in str(e.value)
 
 
+def test_probe_waits_for_the_exit_code_when_stdout_closes_first(tmp_path):
+    """標準出力が閉じても、終了コードと最後の標準エラーを取りこぼさない（Windows の CI で「終了コード None」になった）。"""
+    cli = write_mock_cli(tmp_path / "photocraft-cli", env={"MOCK_MCP_LATE_EXIT": "1"})
+    with pytest.raises(mcp.ProbeError) as e:
+        mcp.probe(cli, ["mcp"], timeout=10)
+    assert "終了コード 3" in str(e.value) and "late failure" in str(e.value)
+
+
 def test_probe_times_out_and_stops_the_server(tmp_path):
     cli = write_mock_cli(tmp_path / "photocraft-cli", env={"MOCK_MCP_HANG": "1"})
     with pytest.raises(mcp.ProbeError, match="応答がありません"):

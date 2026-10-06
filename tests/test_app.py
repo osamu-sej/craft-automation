@@ -447,3 +447,23 @@ def test_whole_app_boots_and_registers_every_page(repo):
 
     assert set(common.PAGES) == {"batch", "recipes", "history", "smoke", "upstream", "upgrade", "versions", "ledger", "mcp"}
     assert any("使用バージョン" in s.label for s in at.sidebar.selectbox)
+
+
+def test_ledger_editor_rows_keep_new_commands_and_drop_blank_ones():
+    """表エディタの結果（pandas）から台帳の行を作る。追加された行は残し、コマンドが空の行・NaN は捨てる。"""
+    import pandas as pd
+
+    from views import ledger_page
+
+    df = pd.DataFrame(
+        [
+            {"コマンド": "a.b", "params（例）": "{}", "用途": "手書き | 注意", "使用レシピ": "grade", "検証日": "2026-10-06 (v0.2.0)"},
+            {"コマンド": "image.adjustments.invert", "params（例）": None, "用途": None, "使用レシピ": None, "検証日": None},  # 追加した行
+            {"コマンド": "", "params（例）": "x", "用途": "", "使用レシピ": "", "検証日": ""},  # コマンドが空
+            {"コマンド": None, "params（例）": None, "用途": None, "使用レシピ": None, "検証日": None},  # 空の追加行
+            {"コマンド": float("nan"), "params（例）": float("nan"), "用途": float("nan"), "使用レシピ": float("nan"), "検証日": float("nan")},
+        ]
+    )
+    rows = ledger_page._rows_from(df)
+    assert [r.command for r in rows] == ["a.b", "image.adjustments.invert"]
+    assert rows[0].purpose == "手書き | 注意" and rows[1].params == "" and rows[1].verified == ""
