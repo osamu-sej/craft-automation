@@ -34,6 +34,8 @@ class Job:
     in_dir: str
     out_dir: str
     expected: int  # 処理予定の入力数
+    kind: str = "batch"  # batch / smoke
+    group: str = ""  # スモークテスト1回分のジョブをまとめる ID
     started_at: str = field(default_factory=_now)
     finished_at: str = ""
     status: str = "running"  # running / succeeded / failed / cancelled / error
@@ -73,6 +75,15 @@ class History:
                     command TEXT, in_dir TEXT, out_dir TEXT, status TEXT, exit_code INTEGER,
                     ok INTEGER, failed INTEGER, log TEXT, started_at TEXT, finished_at TEXT)"""
             )
+            cols = {r["name"] for r in c.execute("PRAGMA table_info(runs)")}
+            if "kind" not in cols:  # P1 で作った履歴に列を足す
+                c.execute("ALTER TABLE runs ADD COLUMN kind TEXT NOT NULL DEFAULT 'batch'")
+                c.execute("ALTER TABLE runs ADD COLUMN group_id TEXT NOT NULL DEFAULT ''")
+            c.execute(
+                """CREATE TABLE IF NOT EXISTS smokes(
+                    id TEXT PRIMARY KEY, started_at TEXT, finished_at TEXT, pinned TEXT, latest TEXT,
+                    verdict TEXT, detail TEXT)"""
+            )
 
     def _conn(self) -> sqlite3.Connection:
         c = sqlite3.connect(self.path)
@@ -82,9 +93,11 @@ class History:
     def record(self, j: Job) -> None:
         with self._conn() as c:
             c.execute(
-                "INSERT OR REPLACE INTO runs VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                """INSERT OR REPLACE INTO runs(id, recipe, recipe_hash, tag, version, command, in_dir, out_dir, status,
+                    exit_code, ok, failed, log, started_at, finished_at, kind, group_id)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (j.id, j.recipe, j.recipe_hash, j.tag, j.version, j.command, j.in_dir, j.out_dir, j.status,
-                 j.exit_code, len(j.ok), len(j.failed), j.log_text(), j.started_at, j.finished_at),
+                 j.exit_code, len(j.ok), len(j.failed), j.log_text(), j.started_at, j.finished_at, j.kind, j.group),
             )
 
     def runs(self, limit: int = 200) -> list[dict]:
@@ -92,11 +105,20 @@ class History:
             return [dict(r) for r in c.execute("SELECT * FROM runs ORDER BY started_at DESC LIMIT ?", (limit,))]
 
     def last_by_recipe(self) -> dict[str, dict]:
-        """レシピ名ごとの最終実行（FR-01 の「最終実行結果」）。"""
+        """レシピ名ごとの最終実行（FR-01 の「最終実行結果」。一括実行のみ）。"""
         out: dict[str, dict] = {}
         for r in self.runs(1000):
-            out.setdefault(r["recipe"], r)
+            if r["kind"] == "batch":
+                out.setdefault(r["recipe"], r)
         return out
+
+    def record_smoke(self, id: str, started_at: str, finished_at: str, pinned: str, latest: str, verdict: str, detail: str) -> None:
+        with self._conn() as c:
+            c.execute("INSERT OR REPLACE INTO smokes VALUES (?,?,?,?,?,?,?)", (id, started_at, finished_at, pinned, latest, verdict, detail))
+
+    def smokes(self, limit: int = 50) -> list[dict]:
+        with self._conn() as c:
+            return [dict(r) for r in c.execute("SELECT * FROM smokes ORDER BY started_at DESC LIMIT ?", (limit,))]
 
 
 class JobManager:
@@ -105,12 +127,14 @@ class JobManager:
         self.jobs: dict[str, Job] = {}
 
     def start_batch(self, cli: Path, tag: str, version: str, recipe: Path, recipe_hash: str,
-                    in_dir: Path, out_dir: Path, fmt: str = "", quality: int | None = None) -> Job:
+                    in_dir: Path, out_dir: Path, fmt: str = "", quality: int | None = None,
+                    kind: str = "batch", group: str = "") -> Job:
         job = Job(
             id=uuid.uuid4().hex[:12],
             args=photocraft.batch_args(cli, recipe, in_dir, out_dir, fmt, quality),
             recipe=recipe.stem, recipe_hash=recipe_hash, tag=tag, version=version,
             in_dir=str(in_dir), out_dir=str(out_dir), expected=len(photocraft.list_inputs(in_dir)),
+            kind=kind, group=group,
         )
         self.jobs[job.id] = job
         try:

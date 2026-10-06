@@ -3,6 +3,7 @@
 コマンド "fail.me" を含むレシピは各ファイルで失敗し、"slow" は 30 秒待つ（キャンセル確認用）。
 """
 import json
+import os
 import shutil
 import sys
 import time
@@ -30,6 +31,8 @@ def main(argv):
     data = json.loads(Path(opts["--actions"]).read_text(encoding="utf-8"))
     actions = data["actions"] if isinstance(data, dict) else data
     cmds = [a.get("command", a.get("id")) for a in actions]
+    if os.environ.get("MOCK_FAIL") == "1":  # 破壊的変更の入った版のふり
+        cmds.append("fail.me")
     out = Path(opts["--out"])
     out.mkdir(parents=True, exist_ok=True)
     ok = failed = 0
