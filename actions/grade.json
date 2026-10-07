@@ -1,5 +1,5 @@
 {
-  "tested_with": "v0.2.0",
+  "tested_with": "v0.3.0",
   "actions": [
     {"command": "filter.sharpen.smartSharpen", "params": {"amount": 80}},
     {"command": "layer.newAdjustmentLayer.curves", "params": {"points": [[0, 0], [64, 56], [192, 204], [255, 255]]}}
