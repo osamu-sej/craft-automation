@@ -3,6 +3,7 @@ import json
 import sys
 import threading
 from functools import partial
+from pathlib import Path
 
 import pytest
 
@@ -66,12 +67,17 @@ def test_rebuild_replaces_and_failure_keeps_the_old_one(server, tmp_path):
     assert not list((tmp_path / "snap").glob(".*partial"))
 
 
+def _committed_tags() -> list[str]:
+    return sorted(p.name for p in (Path(__file__).resolve().parents[1] / "docs/upstream-snapshot").glob("v*") if (p / "SOURCE.md").is_file())
+
+
 @pytest.mark.integration
-def test_matches_the_committed_snapshot_of_v0_2_0(tmp_path, repo_root):
-    """Python 版が、シェル版で作ってコミット済みの v0.2.0 スナップショットと同じ内容を作る。"""
-    inst = releases.install("v0.2.0", tmp_path / "bin")
-    out = snapshot.create("v0.2.0", inst.cli, tmp_path / "snap")
-    committed = repo_root / "docs/upstream-snapshot/v0.2.0"
+@pytest.mark.parametrize("tag", _committed_tags())
+def test_matches_the_committed_snapshot(tmp_path, repo_root, tag):
+    """Python 版が、コミット済みのスナップショット（v0.2.0 はシェル版、以降はアプリのウィザード）と同じ内容を作る。"""
+    inst = releases.install(tag, tmp_path / "bin")
+    out = snapshot.create(tag, inst.cli, tmp_path / "snap")
+    committed = repo_root / "docs/upstream-snapshot" / tag
     norm = lambda p: p.read_bytes().replace(b"\r\n", b"\n")  # noqa: E731 - Windows の改行変換を無視する
     # OS に依らない内容は、バイト単位で同じ
     for f in [*snapshot.FILES, "generated/release-assets.txt", "SOURCE.md"]:
@@ -79,7 +85,7 @@ def test_matches_the_committed_snapshot_of_v0_2_0(tmp_path, repo_root):
     load = lambda p: json.loads(p.read_text(encoding="utf-8"))  # noqa: E731
     assert load(out / "generated/mcp-tools.json") == load(committed / "generated/mcp-tools.json")
     ids = lambda d: sorted(c["id"] for c in load(d / "generated/commands.json"))  # noqa: E731
-    assert ids(out) == ids(committed) and len(ids(out)) == 748
+    assert ids(out) == ids(committed) and len(ids(out)) == {"v0.2.0": 748, "v0.3.0": 776}.get(tag, len(ids(out)))
     if sys.platform == "linux":
         # コミット済みは Linux 版で作った。他 OS の本家バイナリが同じ出力かは未確認なので、Linux だけ厳密に比べる
         for f in ["generated/version.txt", "generated/commands.json"]:

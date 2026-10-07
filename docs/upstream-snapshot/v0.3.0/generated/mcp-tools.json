@@ -1,0 +1,525 @@
+[
+  {
+    "name": "command_batch",
+    "description": "Run several engine commands in one call (fewer round trips). Returns {completed, failed, results:[{ok, result|error}]}; stops at the first error unless stop_on_error is false.",
+    "inputSchema": {
+      "$defs": {
+        "RunParams": {
+          "properties": {
+            "id": {
+              "description": "Command id, e.g. `layer.new.layer`, `filter.blur.gaussianBlur`.",
+              "type": "string"
+            },
+            "params": {
+              "default": null,
+              "description": "Command parameters as a JSON object (see the `params` doc in `command_list`)."
+            },
+            "wait": {
+              "default": null,
+              "description": "Wait for a long command (filters, Content-Aware Fill, Photomerge, …) to finish (default\ntrue). With false it runs as a background job and the result is `{\"job\": id}`: poll it\nwith `jobs_list`, stop it with `jobs_cancel`.",
+              "type": [
+                "boolean",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "id"
+          ],
+          "type": "object"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "steps": {
+          "description": "Commands to run in order: `[{\"id\": \"layer.new.layer\", \"params\": {\"name\": \"Ink\"}}, …]`. A\nstep with `\"wait\": false` starts a long command as a background job (its result is\n`{\"job\": id}`, as in `command_run`); later steps that edit the same document fail until\nthe job ends.",
+          "items": {
+            "$ref": "#/$defs/RunParams"
+          },
+          "type": "array"
+        },
+        "stop_on_error": {
+          "default": null,
+          "description": "Stop at the first failing step (default true).",
+          "type": [
+            "boolean",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "steps"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "name": "command_list",
+    "description": "List engine commands: id, label, menu path, shortcut, parameter doc, enabled now.",
+    "inputSchema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "enabled_only": {
+          "default": null,
+          "description": "Only commands that can run right now.",
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "filter": {
+          "default": null,
+          "description": "Only commands whose id or label contains this text (case-insensitive).",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    }
+  },
+  {
+    "name": "command_run",
+    "description": "Run an engine command by id with JSON params (see command_list). Returns the command's JSON result. Long commands (filters, Content-Aware Fill/Scale, Photomerge, brush import) wait to finish unless `wait` is false: then they run as a background job and the result is {job: id} (see jobs_list, jobs_cancel).",
+    "inputSchema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "id": {
+          "description": "Command id, e.g. `layer.new.layer`, `filter.blur.gaussianBlur`.",
+          "type": "string"
+        },
+        "params": {
+          "default": null,
+          "description": "Command parameters as a JSON object (see the `params` doc in `command_list`)."
+        },
+        "wait": {
+          "default": null,
+          "description": "Wait for a long command (filters, Content-Aware Fill, Photomerge, …) to finish (default\ntrue). With false it runs as a background job and the result is `{\"job\": id}`: poll it\nwith `jobs_list`, stop it with `jobs_cancel`.",
+          "type": [
+            "boolean",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "name": "control_call",
+    "description": "Bridge mode: call any control-protocol method (docs/control-protocol.md) with raw params.",
+    "inputSchema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "method": {
+          "description": "Any control-protocol method, e.g. `ui.dialog.open`.",
+          "type": "string"
+        },
+        "params": {
+          "default": null
+        }
+      },
+      "required": [
+        "method"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "name": "doc_close",
+    "description": "Close a document (default: the active one) without saving.",
+    "inputSchema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "index": {
+          "default": null,
+          "description": "Document index from `session_list` (default: the active document).",
+          "format": "uint",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    }
+  },
+  {
+    "name": "doc_export",
+    "description": "Export the document to another format (same as doc_save with an explicit path/format).",
+    "inputSchema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "format": {
+          "default": null,
+          "description": "Format override as an extension (pcraft, psd, png, jpg, tif, webp, exr, …).",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "index": {
+          "default": null,
+          "format": "uint",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "path": {
+          "default": null,
+          "description": "Forward-slash relative target beneath the configured automation write root.\nThe extension selects the format. Omit to write back to the document's own file, which\nworks only for a PSD, PSB or .pcraft file kept in its own format; any other save needs\n`path`, so a flattened or converted copy never replaces the opened file.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "quality": {
+          "default": null,
+          "description": "JPEG quality 1..100 for lossy exports.",
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    }
+  },
+  {
+    "name": "doc_inspect",
+    "description": "Document state as JSON: layer tree (top to bottom), history, selection, active layer.",
+    "inputSchema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "index": {
+          "default": null,
+          "description": "Document index from `session_list` (default: the active document).",
+          "format": "uint",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    }
+  },
+  {
+    "name": "doc_new",
+    "description": "Create a new document (defaults: 1920x1080 RGB 8-bit white).",
+    "inputSchema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "background": {
+          "default": null,
+          "description": "white | black | transparent | #rrggbb",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "depth": {
+          "default": null,
+          "description": "8 | 16 | 32",
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "height": {
+          "default": null,
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "mode": {
+          "default": null,
+          "description": "rgb | gray | cmyk | lab",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "name": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "width": {
+          "default": null,
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    }
+  },
+  {
+    "name": "doc_open",
+    "description": "Open an image or document file and make it active. Returns index, size and import warnings.",
+    "inputSchema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "path": {
+          "description": "Forward-slash relative path beneath the configured automation read root.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "name": "doc_render_preview",
+    "description": "Render the flattened document and return it as a PNG image (bridge mode: window screenshot).",
+    "inputSchema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "index": {
+          "default": null,
+          "format": "uint",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "max_side": {
+          "default": null,
+          "description": "Longest side of a headless preview (default 1024, maximum 2048).\nZero requests full size within that ceiling. Bridge mode returns the window screenshot.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    }
+  },
+  {
+    "name": "doc_save",
+    "description": "Save the document. `.pcraft` is the lossless native format (incremental); other extensions (psd, png, jpg, tif, webp, exr, …) export. Without `path` only a PSD, PSB or .pcraft document is written back to its own         file. Returns warnings about anything the format cannot hold.",
+    "inputSchema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "format": {
+          "default": null,
+          "description": "Format override as an extension (pcraft, psd, png, jpg, tif, webp, exr, …).",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "index": {
+          "default": null,
+          "format": "uint",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "path": {
+          "default": null,
+          "description": "Forward-slash relative target beneath the configured automation write root.\nThe extension selects the format. Omit to write back to the document's own file, which\nworks only for a PSD, PSB or .pcraft file kept in its own format; any other save needs\n`path`, so a flattened or converted copy never replaces the opened file.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "quality": {
+          "default": null,
+          "description": "JPEG quality 1..100 for lossy exports.",
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    }
+  },
+  {
+    "name": "doc_select",
+    "description": "Make the document at `index` active.",
+    "inputSchema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "index": {
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "index"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "name": "jobs_cancel",
+    "description": "Cancel a background job by id (or every running job when `job` is omitted). The document is left unchanged.",
+    "inputSchema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "job": {
+          "default": null,
+          "description": "The job id from `command_run` / `jobs_list` (omit to cancel every running job).",
+          "format": "uint64",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    }
+  },
+  {
+    "name": "jobs_list",
+    "description": "List background jobs: running ones with progress (0-1), message and elapsed time, then the last few that ended (state done|failed|cancelled with their result or error). Finished jobs are applied first.",
+    "inputSchema": {
+      "properties": {},
+      "type": "object"
+    }
+  },
+  {
+    "name": "session_list",
+    "description": "List open documents (index, name, size, dirty) and the active index.",
+    "inputSchema": {
+      "properties": {},
+      "type": "object"
+    }
+  },
+  {
+    "name": "ui_inspect",
+    "description": "Bridge mode: full UI state of the live app (tool, panels, views, dialogs, windows). For the menu tree, call `control_call` with method `ui.menu.list`.",
+    "inputSchema": {
+      "properties": {},
+      "type": "object"
+    }
+  },
+  {
+    "name": "ui_menu_invoke",
+    "description": "Bridge mode: activate a menu item by id.",
+    "inputSchema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "id": {
+          "description": "Menu item / command id.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "name": "ui_pointer",
+    "description": "Bridge mode: send pointer events (document coordinates) to the active tool.",
+    "inputSchema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "properties": {
+        "button": {
+          "default": null,
+          "description": "Mouse button: `left` (default), or `right` / `secondary`: with the Move tool or\n`{\"command\":true}` it opens the canvas layer menu, with a painting tool the Brush Preset\npicker.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "events": {
+          "description": "Events in document coordinates: `[{\"kind\":\"down|move|up\",\"x\":..,\"y\":..,\"pressure\":..}]`.",
+          "items": true,
+          "type": "array"
+        },
+        "modifiers": {
+          "default": null,
+          "description": "Modifier keys, e.g. `{\"shift\":true}` (also `alt`, `command`, `ctrl`, `space`)."
+        }
+      },
+      "required": [
+        "events"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "name": "ui_screenshot",
+    "description": "Bridge mode: screenshot of the live app window as PNG.",
+    "inputSchema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "index": {
+          "default": null,
+          "format": "uint",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "max_side": {
+          "default": null,
+          "description": "Longest side of a headless preview (default 1024, maximum 2048).\nZero requests full size within that ceiling. Bridge mode returns the window screenshot.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    }
+  },
+  {
+    "name": "ui_set",
+    "description": "Bridge mode: change UI state (tool, panels, dock, zoom, center, fit, theme, brush settings; see `fields`). Unknown fields are an error.",
+    "inputSchema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "fields": {
+          "description": "Fields for the control method `ui.set`: tool, panels, dock, dockTabs, dockWidth, maskTarget,\nvectorMaskTarget, selectionMode, zoom, center, fit, theme (pro, proMedium, studio,\nstudioLight, classic), brushSection, brushTab, brushesView, brushSize. Other fields are an\nerror."
+        }
+      },
+      "required": [
+        "fields"
+      ],
+      "type": "object"
+    }
+  }
+]

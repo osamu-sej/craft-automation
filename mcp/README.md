@@ -11,6 +11,13 @@
   - ブリッジのみ: `ui_inspect` `ui_screenshot` `ui_pointer` `ui_menu_invoke` `ui_set` `control_call`（ヘッドレスでは説明付きのエラー）
 - `command_batch` は1回最大 256 ステップ
 
+## v0.3.0 での変化（2026-10-07, Linux 版で実機確認。保存: `tools-v0.3.0.json`）
+- 公開ツール 20 個（18 → 20）。追加は `jobs_list` / `jobs_cancel`（長い処理をバックグラウンドジョブにしたため。本家 `docs/control-protocol.md` の「Background jobs」）。削除・改名はなし
+- 既存ツールの入力は追加のみ（必須項目は変わらない）: `command_run` と `command_batch` のステップに任意の `wait`（`false` で長い処理をジョブとして始め、`{job, pending}` が先に返る）、`ui_pointer` に任意の `button`
+- 説明・制約が変わったもの（保存した一覧どうしの比較）: `doc_save` と `doc_export`（`path` を省くと、PSD・PSB・`.pcraft` だけは元のファイルへ元の形式のまま書き戻す。それ以外は `path` が要る）、`doc_render_preview` と `ui_screenshot`（`max_side` は既定 1024・上限 2048、0 は上限内で原寸）、`ui_inspect`（メニュー木を含まない。`control_call` で `ui.menu.list` を呼ぶ）、`ui_set`（`fields` の項目が増えた）
+- 返信・プレビューに上限がついた（返信 8 MiB、ヘッドレスのプレビューは長辺 2048 px・元 67,108,864 px・PNG 5 MiB まで）
+- ヘッドレス（`photocraft-cli mcp --automation-read-root … --automation-write-root …`）の起動と、ルートが必須なことは v0.2.0 と同じ。ブリッジの正常系は未検証のまま
+
 ## 認証・ファイルアクセス（v0.2.0 で破壊的変更）
 | 項目 | v0.1.1 | v0.2.0 |
 |---|---|---|

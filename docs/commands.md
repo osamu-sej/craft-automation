@@ -1,14 +1,14 @@
 # コマンド一覧メモ
 
-PhotoCraft のコマンドレジストリ（v0.2.0 で 748 件）のうち、使ったものを記録する。
+PhotoCraft のコマンドレジストリ（v0.2.0 で 748 件、v0.3.0 で 776 件）のうち、使ったものを記録する。
 全件と params 書式の正本は `photocraft-cli commands --json`（スナップショット: `docs/upstream-snapshot/<tag>/generated/commands.json`）。
 
 **注意**: CLI は params を検証しない。未知のキー・範囲外の値・型違いでもエラーにならず成功する（v0.2.0 で確認）。レシピ作成時は下表と `commands.json` の書式でキー名を確認すること。
 
 | コマンド | params（例） | 用途 | 使用レシピ | 検証日 |
 |---|---|---|---|---|
-| filter.sharpen.smartSharpen | {"amount":80} | シャープ。書式 `{"amount":1..500=100,"radius":0.1..64=1,"reduceNoise":0..100=10}` | grade | 2026-10-05 (v0.1.1, v0.2.0) |
-| layer.newAdjustmentLayer.curves | {"points":[[0,0],[64,56],[192,204],[255,255]]} | トーンカーブ（調整レイヤー）。`[[in,out],…]` 0..255、2..19点。`red`/`green`/`blue` でチャンネル別 | grade | 2026-10-05 (v0.1.1, v0.2.0) |
+| filter.sharpen.smartSharpen | {"amount":80} | シャープ。書式 `{"amount":1..500=100,"radius":0.1..64=1,"reduceNoise":0..100=10}` | grade | 2026-10-07 (v0.2.0, v0.3.0) |
+| layer.newAdjustmentLayer.curves | {"points":[[0,0],[64,56],[192,204],[255,255]]} | トーンカーブ（調整レイヤー）。`[[in,out],…]` 0..255、2..19点。`red`/`green`/`blue` でチャンネル別 | grade | 2026-10-07 (v0.2.0, v0.3.0) |
 | file.new | {"width":64,"height":64,"background":"#808080"} | 新規ドキュメント（`run --new` に渡す） | smoke 入力生成 | 2026-10-05 (v0.1.1) |
 | paint.stroke | {"points":[[8,8,1],[56,56,1]],"size":8,"color":"#d03030"} | ブラシストローク | smoke 入力生成 | 2026-10-05 (v0.1.1) |
 
@@ -16,3 +16,9 @@ PhotoCraft のコマンドレジストリ（v0.2.0 で 748 件）のうち、使
 - 追加: `brush.presets.importAbr`, `gradient.presets.importGrd`, `paint.backgroundEraser`, `paint.magicEraser`, `plugin.install/list/reload/remove/run`（739 → 748 件）
 - params 書式の変更: 35 件（`image.adjustments.*` 13、`layer.newAdjustmentLayer.*` 13 ほか）。キーの削除はなし。27 件はキー追加、残りは既定値の明記など（例: hueSaturation に `reds`〜`magentas`、`filter.other.maximum` に `preserve`）
 - 削除: なし
+
+## 版間の変化（v0.2.0 → v0.3.0）
+- 追加 28 件（748 → 776）: `layer.select{Above,Below,Top,Bottom}`・`layer.stamp{Down,Visible}`・`layer.set{Expanded,EffectsExpanded}` ほか `layer.*` 10、`brush.presets.{rename,move,deleteGroup,…}` 5、`edit.fill{Foreground,Background}[Preserve]` ほか `edit.*` 4、`gradient.fill.{create,get,set,stop}`、`file.newFromClipboard`、`view.layerMask`、`jobs.list` / `jobs.cancel`（長い処理のバックグラウンド実行）
+- 削除: なし
+- params 書式の変更 23 件。キーの削除はなし。13 件はキー追加（`paint.*` に `target`・`channel`、`paint.blur/sharpen/smudge` に `sampleAllLayers`、`edit.fill` に `colorAdaptation`・`mode`・`preserveTransparency`・`state`、`type.edit` に `at`・`by`・`kerning` ほか）。残りは説明の変更
+- レシピ（grade）で使う `filter.sharpen.smartSharpen` と `layer.newAdjustmentLayer.curves` の書式は変わらない。smoke の出力は v0.2.0 と v0.3.0 で同一（SHA256 一致）

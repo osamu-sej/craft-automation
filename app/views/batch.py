@@ -63,7 +63,11 @@ def render() -> None:
         names = Counter(photocraft.output_name(p, fmt) for p in inputs)
         dup = [n for n, k in names.items() if k > 1]
         if dup:
-            st.warning(f"出力名が重なり、後の画像で上書きされます: {', '.join(dup[:5])}{' ほか' if len(dup) > 5 else ''}")
+            more = " ほか" if len(dup) > 5 else ""
+            if photocraft.batch_collision(inst.tag) == "fail":
+                st.warning(f"出力名が重なります。後の画像は書き出されず「失敗」になります（先の結果は残ります。{inst.tag}）: {', '.join(dup[:5])}{more}")
+            else:
+                st.warning(f"出力名が重なり、後の画像で上書きされます（{inst.tag}。成功と数えられるので気づきにくい）: {', '.join(dup[:5])}{more}")
         existing = [n for n in names if (out_dir / n).exists()]
         if existing:
             st.info(f"出力フォルダの既存ファイル {len(existing)} 件を上書きします")

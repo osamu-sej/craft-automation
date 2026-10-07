@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 import shutil
 import sys
 import time
@@ -23,10 +24,13 @@ def repo(tmp_path, repo_root, monkeypatch):
     root = tmp_path / "repo"
     for d in ["actions", "samples/smoke/in", "docs/upstream-snapshot"]:
         shutil.copytree(repo_root / d, root / d)
-    shutil.copy(repo_root / ".photocraft-version", root / ".photocraft-version")
+    # 本物のリポジトリのピン・レシピの検証版は、ピン更新のたびに変わる。画面のテストは v0.2.0 固定の状態で行う
+    (root / ".photocraft-version").write_text("v0.2.0\n", encoding="utf-8")
+    grade = root / "actions" / "grade.json"
+    grade.write_text(re.sub(r'"tested_with":\s*"[^"]*"', '"tested_with": "v0.2.0"', grade.read_text(encoding="utf-8")), encoding="utf-8")
     # この OS で直接起動できるモック CLI を「導入済みの版」として置く
     exe = write_mock_cli(root / ".bin" / TAG / "mock" / "photocraft-cli").name
-    monkeypatch.setattr(photocraft, "asset_for", lambda tag, *a: photocraft.Asset("mock.zip", f"mock/{exe}", "zip"))
+    monkeypatch.setattr(photocraft, "asset_candidates", lambda tag, *a: [photocraft.Asset("mock.zip", f"mock/{exe}", "zip")])
     monkeypatch.setattr(releases, "list_releases", lambda: ([releases.Release("v10.0.0", False, "2026-10-05T00:00:00Z"), releases.Release(TAG, False)], "テスト"))
     monkeypatch.setenv("CRAFT_UPSTREAM_AUTO", "0")  # テスト中に本家へ自動で問い合わせない
     monkeypatch.setenv("CRAFT_REPO", str(root))
@@ -114,6 +118,19 @@ def test_batch_page_blocks_same_folder(repo):
     at.text_input(key="batch_out").input("samples/smoke/in").run()
     assert any("同じフォルダ" in e.value for e in at.error)
     assert next(b for b in at.button if b.label == "実行").disabled
+
+
+@pytest.mark.parametrize("tag,expect", [(TAG, "「失敗」になります"), ("v0.2.0", "後の画像で上書きされます")])
+def test_batch_page_collision_warning_follows_the_version(repo, tag, expect):
+    """同名の出力が重なったときの挙動は版で違う（v0.3.0 から後の画像は失敗）。警告は使用版に合わせる。"""
+    shutil.copy(repo / "samples/smoke/in/smoke.png", repo / "samples/smoke/in/smoke.jpg")
+    write_mock_cli(repo / ".bin" / "v0.2.0" / "mock" / "photocraft-cli")
+    at = _page("batch.render")
+    at.sidebar.selectbox[0].select(tag).run()
+    at.text_input(key="batch_in").input("samples/smoke/in").run()
+    at.selectbox(key="batch_fmt").select("png").run()
+    msgs = [w.value for w in at.warning if "出力名が重なり" in w.value]
+    assert len(msgs) == 1 and expect in msgs[0] and "smoke.png" in msgs[0], [w.value for w in at.warning]
 
 
 def test_history_page_empty(repo):
