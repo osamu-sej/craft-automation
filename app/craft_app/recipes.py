@@ -53,8 +53,14 @@ def validate(text: str, registry: dict[str, photocraft.Command] | None = None) -
             v.tested_with = data["tested_with"]
         else:
             v.errors.append('"tested_with" は文字列にしてください（例: "v0.2.0"）')
-    v.steps, errs = photocraft.parse_actions(data)
-    v.errors += errs
+    parsed = photocraft.parse_actions_ex(data)
+    v.steps = parsed.steps
+    v.errors += parsed.errors
+    if parsed.newer and not parsed.errors:
+        v.warnings.append(
+            f"v0.3.0 以降でだけ読める書き方です（{'、'.join(parsed.newer)}）。v0.2.0 以前の PhotoCraft ではエラーになります。"
+            '全版で動かすなら、配列の {"command": …, "params": …} 形式にしてください'
+        )
     if registry is not None:
         for s in v.steps:
             cmd = registry.get(s.command)

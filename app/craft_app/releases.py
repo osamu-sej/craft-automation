@@ -99,10 +99,11 @@ def installed(bin_dir: Path) -> list[Installed]:
         if not d.is_dir():
             continue
         try:
-            cli = d / photocraft.asset_for(d.name).cli_relpath
+            candidates = photocraft.asset_candidates(d.name)
         except photocraft.UnsupportedPlatform:
             continue
-        if cli.is_file():
+        cli = next((d / a.cli_relpath for a in candidates if (d / a.cli_relpath).is_file()), None)
+        if cli is not None:
             found.append(Installed(d.name, cli))
     return sorted(found, key=lambda x: _version_key(x.tag), reverse=True)
 
@@ -146,7 +147,7 @@ def install(tag: str, bin_dir: Path, progress: Callable[[int, int], None] | None
 
     検証に失敗した取得物は削除し、展開先も作らない。
     """
-    asset = photocraft.asset_for(tag)
+    candidates = photocraft.asset_candidates(tag)
     dest = bin_dir / tag
     tmp = bin_dir / f".{tag}.partial"
     shutil.rmtree(tmp, ignore_errors=True)
@@ -154,9 +155,11 @@ def install(tag: str, bin_dir: Path, progress: Callable[[int, int], None] | None
     try:
         sums_url = photocraft.asset_url(tag, photocraft.CHECKSUMS)
         with _get(sums_url) as r:
-            expected = photocraft.checksum_for(r.text, asset.name)
+            sums = r.text
+        # 優先順に見て、リリースにある最初の asset を使う（Windows ARM64 は、ネイティブ版がなければ x64 版）
+        asset, expected = next(((a, c) for a in candidates if (c := photocraft.checksum_for(sums, a.name))), (candidates[0], None))
         if expected is None:
-            raise DownloadError(sums_url, 200, f"{asset.name} が一覧にありません（この版にこの OS 向けの asset がない可能性）")
+            raise DownloadError(sums_url, 200, f"{candidates[0].name} が一覧にありません（この版にこの OS 向けの asset がない可能性）")
         url = photocraft.asset_url(tag, asset.name)
         archive = tmp / asset.name
         h = hashlib.sha256()

@@ -48,9 +48,9 @@
   |---|---|---|
   | Linux（x86_64 / aarch64） | `photocraft-<ver>-linux-<arch>.tar.gz` | `photocraft-<ver>-linux-<arch>/bin/photocraft-cli` |
   | macOS（universal） | `photocraft-cli-<ver>-macos-universal.zip` | `photocraft-cli-<ver>-macos-universal/photocraft-cli` |
-  | Windows（x64 / x86） | `photocraft-<ver>-windows-<arch>-portable.zip` | `photocraft-<ver>-windows-<arch>-portable/photocraft-cli.exe` |
+  | Windows（x64 / x86 / arm64） | `photocraft-<ver>-windows-<arch>-portable.zip` | `photocraft-<ver>-windows-<arch>-portable/photocraft-cli.exe` |
 
-  `<ver>` はタグから先頭の `v` を除いたもの。
+  `<ver>` はタグから先頭の `v` を除いたもの。Windows ARM64 のネイティブ版（`arm64`）は **v0.3.0 から**。それより前の版は x64 版を使う（Windows 11 の x64 エミュレーション）。取得は優先順に見て、リリースの `SHA256SUMS.txt` にある最初の asset を使う。
 - 取得物は同じリリースの `SHA256SUMS.txt` で検証し、不一致なら使わない。
 - 取得失敗・asset 名変更時は、試した URL と HTTP ステータスを表示する。
 
@@ -146,6 +146,8 @@
 | # | 問い | 回答 | 根拠 |
 |---|---|---|---|
 | Q1 | `batch --actions` の JSON スキーマ | `[{"command": id, "params": {…}}]` または `{"actions": [...]}`。`"id"` は `"command"` の別名、`params` は省略可。他のキーは無視。**params は検証されない**（未知キー・範囲外・型違いでも成功） | `apps/photocraft-cli/src/lib.rs` の `parse_actions`。実機で配列形式・`{"actions"}` 形式・`id` 別名・params 省略を確認 |
+| Q1b | v0.3.0 でのアクションリスト形式 | v0.2.0 の形式はそのまま通る。加えて、ステップは `[id, params?]` や `"id"` だけでも書け、最上位は `{"steps": […]}`・`{"action": {"steps": […]}}`（`action` が配列でもよい）・`{"actions": {"steps": […]}}` も通る。**v0.2.0 以前ではエラー**になるので、アプリは警告する。params は引き続き検証されない | `crates/engine/src/automate_cmds.rs` の `parse_action` / `parse_steps`。実機（v0.2.0 / v0.3.0）で 24 通りの書き方の受理・拒否をアプリのパーサーと突き合わせ、一致を確認（空の配列だけは、CLI は通すがアプリは「ステップなし」として拒否する） |
+| Q1c | 同名の出力が重なったとき | v0.2.0 まで: 後の画像が黙って上書き（全件「成功」）。**v0.3.0 から**: 後の画像は書かずに失敗（`already holds the result of … from this run`）、先の結果は残り、終了コード 1。出力フォルダに前から在るファイルは両版で上書き | 実機（v0.2.0 / v0.3.0） |
 | Q2 | リリース asset 命名と展開後のバイナリ名 | FR-02 の表のとおり。v0.1.1 と v0.2.0 で asset 構成は同一。全 asset の `SHA256SUMS.txt` が付く | 本家 `packaging/*/package.*`。3 OS の asset を取得して確認 |
 | Q3 | MCP の公開ツールと認証 | 18 ツール（両版同じ）。v0.2.0 からファイルアクセスにルート指定が必須、ブリッジにトークン認証。詳細は `mcp/README.md` | `crates/automation/src/server.rs`、`docs/control-protocol.md`、実機の tools/list |
 | Q4 | バージョン取得手段 | `photocraft-cli --version` → `photocraft-cli 0.2.0 (ad8632173, 2026-10-05)`（版・コミット・ビルド日） | `lib.rs`、実機 |
@@ -183,7 +185,8 @@
 | 1 | `docs/control-protocol.md` | 制御プロトコル・コマンド仕様（Q1, Q3） |
 | 1 | `AGENTS.md` | エージェント向け操作指針 |
 | 2 | `docs/parity.md` / `docs/roadmap.md` | 実装範囲・変更予定（Q5） |
-| 2 | `apps/photocraft-cli/src/lib.rs` | CLI 定義と `parse_actions`（Q1） |
+| 2 | `apps/photocraft-cli/src/lib.rs` | CLI 定義と、v0.2.0 までの `parse_actions`（Q1） |
+| 2 | `crates/engine/src/automate_cmds.rs` | v0.3.0 からのアクションリスト形式 `parse_action` / `parse_steps`（Q1） |
 | 2 | `crates/automation/src/server.rs` | MCP ツール定義（Q3） |
 | 2 | `generated/commands.json` / `generated/mcp-tools.json` | コマンド台帳と params 書式、MCP ツール一覧（実機から生成） |
 | 3 | `generated/release-assets.txt` | リリース asset 一覧（Q2） |

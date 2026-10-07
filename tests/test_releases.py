@@ -109,3 +109,44 @@ def test_macos_zip_gets_exec_bit(server, tmp_path, monkeypatch):
     assert asset.archive == "zip"
     inst = releases.install(TAG, tmp_path / "bin")
     assert os.access(inst.cli, os.X_OK)
+
+
+# ---- Windows ARM64: v0.3.0 からネイティブ版。無い版は x64 版で代用 ----------------------------
+
+
+def _publish_windows(d, assets: dict[str, bytes]):
+    """{asset 名: CLI の中身} を、SHA256SUMS 付きで公開する（Windows の portable zip の構成）。"""
+    lines = []
+    for name, cli in assets.items():
+        data = _archive(pc.Asset(name, "", "zip"), {f"{name[:-4]}/photocraft-cli.exe": cli})
+        (d / name).write_bytes(data)
+        lines.append(f"{hashlib.sha256(data).hexdigest()}  {name}")
+    (d / "SHA256SUMS.txt").write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+@pytest.fixture
+def windows_arm64(monkeypatch):
+    monkeypatch.setattr(pc.platform, "system", lambda: "Windows")
+    monkeypatch.setattr(pc.platform, "machine", lambda: "ARM64")
+    # 展開できたかだけを見る（Windows 用の実行ファイルは他の OS では動かない）
+    monkeypatch.setattr(pc, "cli_version", lambda cli, timeout=30: "photocraft-cli 9.9.9")
+
+
+def test_arm64_uses_the_native_asset_when_the_release_has_it(server, tmp_path, windows_arm64):
+    _publish_windows(server, {"photocraft-9.9.9-windows-arm64-portable.zip": b"arm", "photocraft-9.9.9-windows-x64-portable.zip": b"x64"})
+    inst = releases.install(TAG, tmp_path / "bin")
+    assert inst.cli.read_bytes() == b"arm" and "windows-arm64-portable" in inst.cli.as_posix()
+
+
+def test_arm64_falls_back_to_x64_when_the_release_has_no_native_asset(server, tmp_path, windows_arm64):
+    _publish_windows(server, {"photocraft-9.9.9-windows-x64-portable.zip": b"x64"})
+    inst = releases.install(TAG, tmp_path / "bin")
+    assert inst.cli.read_bytes() == b"x64"
+    # x64 版を入れた版も「導入済み」として見つかる
+    assert [(i.tag, i.cli) for i in releases.installed(tmp_path / "bin")] == [(TAG, inst.cli)]
+
+
+def test_missing_asset_error_names_the_preferred_asset(server, tmp_path, windows_arm64):
+    _publish_windows(server, {"photocraft-9.9.9-windows-x86-portable.zip": b"x86"})
+    with pytest.raises(releases.DownloadError, match="windows-arm64-portable.zip が一覧にありません"):
+        releases.install(TAG, tmp_path / "bin")

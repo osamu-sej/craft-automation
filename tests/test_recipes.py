@@ -24,6 +24,21 @@ def test_unknown_command_and_key_are_warnings():
     assert any("no.such" in w for w in v.warnings)
 
 
+def test_v0_3_0_only_forms_are_warned_about():
+    """v0.3.0 からの書き方は通すが、v0.2.0 以前ではエラーになるので警告する。"""
+    for text in ['{"steps": ["image.adjustments.invert"]}', '[["image.adjustments.invert", {}]]', '{"action": {"steps": [{"command": "a"}]}}']:
+        v = recipes.validate(text)
+        assert v.ok and len(v.steps) == 1
+        assert any("v0.3.0 以降でだけ読める" in w for w in v.warnings), (text, v.warnings)
+    for text in ['[{"command": "a"}]', '{"tested_with": "v0.2.0", "actions": [{"id": "a"}]}']:
+        assert recipes.validate(text).warnings == []  # 全版で読める書き方には出さない
+
+
+def test_no_v0_3_0_warning_on_top_of_an_error():
+    v = recipes.validate('{"steps": ["a", 1]}')
+    assert not v.ok and not any("v0.3.0" in w for w in v.warnings)
+
+
 def test_tested_with_must_be_string():
     assert recipes.validate('{"tested_with": "v0.2.0", "actions": [{"command": "a"}]}').tested_with == "v0.2.0"
     assert not recipes.validate('{"tested_with": 2, "actions": [{"command": "a"}]}').ok
