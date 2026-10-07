@@ -82,3 +82,54 @@ def test_append_step():
 def test_list_recipes_reads_repo(repo_root):
     names = [r.name for r in recipes.list_recipes(repo_root / "actions")]
     assert "grade" in names
+
+
+HAND_WRITTEN = """{
+  "tested_with": "v0.2.0",
+  "actions": [
+    {"command": "filter.sharpen.smartSharpen", "params": {"amount": 80}},
+    {"command": "layer.newAdjustmentLayer.curves", "params": {"points": [[0, 0], [64, 56], [255, 255]]}}
+  ]
+}
+"""
+
+
+def test_mark_tested_keeps_the_formatting(tmp_path):
+    """tested_with を更新しても、手書きの書式（1 行ずつのステップ）は崩さない。差分は 1 行だけ。"""
+    f = tmp_path / "a.json"
+    f.write_text(HAND_WRITTEN, encoding="utf-8")
+    recipes.mark_tested(f, "v0.3.0")
+    assert f.read_text(encoding="utf-8") == HAND_WRITTEN.replace("v0.2.0", "v0.3.0")
+
+
+@pytest.mark.parametrize(
+    "before,after",
+    [
+        ('{"actions": [{"command": "a"}]}\n', '{"tested_with": "v0.3.0", "actions": [{"command": "a"}]}\n'),
+        ('{\n  "actions": [\n    {"command": "a"}\n  ]\n}\n', '{\n  "tested_with": "v0.3.0",\n  "actions": [\n    {"command": "a"}\n  ]\n}\n'),
+        ('{"tested_with":"v0.1.0","actions":[{"command":"a"}]}', '{"tested_with":"v0.3.0","actions":[{"command":"a"}]}\n'),
+    ],
+)
+def test_mark_tested_adds_or_replaces_in_place(tmp_path, before, after):
+    f = tmp_path / "a.json"
+    f.write_text(before, encoding="utf-8")
+    recipes.mark_tested(f, "v0.3.0")
+    assert f.read_text(encoding="utf-8") == after
+    assert recipes.validate(after).tested_with == "v0.3.0"
+
+
+def test_mark_tested_falls_back_to_a_rewrite_when_the_text_edit_cannot_be_verified(tmp_path):
+    f = tmp_path / "a.json"
+    # 配列形式は、オブジェクト形式への変換なので書き直す
+    f.write_text('[{"command": "a"}]', encoding="utf-8")
+    recipes.mark_tested(f, "v0.3.0")
+    assert json.loads(f.read_text(encoding="utf-8")) == {"tested_with": "v0.3.0", "actions": [{"command": "a"}]}
+    # params の中に同じ名前のキーがあっても、上位の tested_with を正しく更新する（書き直しになってもよい）
+    f.write_text('{"actions": [{"command": "a", "params": {"tested_with": "x"}}], "tested_with": "v0.1.0"}', encoding="utf-8")
+    recipes.mark_tested(f, "v0.3.0")
+    got = json.loads(f.read_text(encoding="utf-8"))
+    assert got["tested_with"] == "v0.3.0" and got["actions"][0]["params"] == {"tested_with": "x"}
+    # 空のオブジェクトは、キーを足せる形に直す
+    f.write_text("{}", encoding="utf-8")
+    recipes.mark_tested(f, "v0.3.0")
+    assert json.loads(f.read_text(encoding="utf-8")) == {"tested_with": "v0.3.0"}

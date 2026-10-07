@@ -145,9 +145,40 @@ def delete(path: Path) -> None:
     path.unlink()
 
 
+_TESTED_WITH = re.compile(r'("tested_with"\s*:\s*)"(?:[^"\\]|\\.)*"')
+_OPEN_BRACE = re.compile(r"\s*\{(\s*)")
+
+
+def _tested_in_place(text: str, data: dict, tag: str) -> str | None:
+    """元の書式（インデント・改行・1 行に収めた params）を保ったまま tested_with だけを差し替える。
+
+    結果を解析して「tested_with だけが変わった」ことを確かめ、確かめられなければ None（呼び出し側が書き直す）。
+    """
+    value = json.dumps(tag)
+    if isinstance(data.get("tested_with"), str):
+        candidate = _TESTED_WITH.sub(lambda m: f"{m[1]}{value}", text, count=1)
+    elif (m := _OPEN_BRACE.match(text)) and "tested_with" not in data:
+        ws = m[1]
+        candidate = f'{text[:m.end() - len(ws)]}{ws}"tested_with": {value},{ws or " "}{text[m.end():]}'
+    else:
+        return None
+    try:
+        ok = json.loads(candidate) == {**data, "tested_with": tag}
+    except ValueError:
+        return None
+    return candidate if ok else None
+
+
 def mark_tested(path: Path, tag: str) -> None:
-    """tested_with を tag にする。配列形式はオブジェクト形式に変換する（CLI 互換のまま）。"""
-    data = json.loads(path.read_text(encoding="utf-8"))
+    """tested_with を tag にする。配列形式はオブジェクト形式に変換する（CLI 互換のまま）。
+
+    オブジェクト形式は、書式を崩さずに tested_with だけを差し替える（差分を最小にする）。
+    """
+    text = path.read_text(encoding="utf-8")
+    data = json.loads(text)
+    if isinstance(data, dict) and (kept := _tested_in_place(text, data, tag)) is not None:
+        _atomic_write(path, kept)
+        return
     if isinstance(data, list):
         data = {"tested_with": tag, "actions": data}
     else:
