@@ -5,3 +5,4 @@ AGENTS.md
 README.md
 apps/photocraft-cli/src/lib.rs
 crates/automation/src/server.rs
+crates/engine/src/automate_cmds.rs

@@ -9,7 +9,8 @@ UP=https://github.com/storytold/photocraft
 DEST="docs/upstream-snapshot/$TAG"
 FILES=(
   README.md AGENTS.md docs/control-protocol.md docs/parity.md docs/roadmap.md
-  apps/photocraft-cli/src/lib.rs     # CLI定義・batch のアクションリスト形式（parse_actions）
+  apps/photocraft-cli/src/lib.rs     # CLI定義・batch の引数（v0.2.0 まではアクションリスト形式の parse_actions もここ）
+  crates/engine/src/automate_cmds.rs # アクションリスト形式の正本（v0.3.0 から parse_action / parse_steps）
   crates/automation/src/server.rs    # MCP ツール定義
   LICENSE-MIT LICENSE-APACHE NOTICE
 )
@@ -44,7 +45,8 @@ cat > "$DEST/SOURCE.md" <<EOF
 | ファイル | 内容 |
 |---|---|
 | README.md, AGENTS.md, docs/*.md | 本家文書（$TAG 時点） |
-| apps/photocraft-cli/src/lib.rs | CLI 定義。\`parse_actions\` が batch のアクションリスト形式の正本 |
+| apps/photocraft-cli/src/lib.rs | CLI 定義。v0.2.0 までは \`parse_actions\` が batch のアクションリスト形式の正本 |
+| crates/engine/src/automate_cmds.rs | v0.3.0 からのアクションリスト形式の正本（\`parse_action\` / \`parse_steps\`） |
 | crates/automation/src/server.rs | MCP ツール定義 |
 | generated/version.txt | \`photocraft-cli --version\` |
 | generated/commands.json | \`photocraft-cli commands --json\`（コマンド台帳・params 書式） |

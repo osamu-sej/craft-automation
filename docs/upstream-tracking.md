@@ -38,4 +38,4 @@ PhotoCraft は early alpha。コマンド名・JSON 形式は変わりうる前�
 
 ## 検知の限界
 - CLI は params を検証しないため、params のキー名が変わってもスモークは成功する。ピン更新時は `scripts/snapshot-upstream.sh <新タグ>` を実行し、`generated/commands.json` の差分でレシピの使用コマンドを確認する
-- 監視対象には CLI 定義（`apps/photocraft-cli/src/lib.rs`）と MCP ツール定義（`crates/automation/src/server.rs`）も含める。batch の形式（`parse_actions`）と MCP ツールの正本は文書ではなく実装にある
+- 監視対象には CLI 定義（`apps/photocraft-cli/src/lib.rs`）、アクションリスト形式の実装（`crates/engine/src/automate_cmds.rs`。v0.3.0 で `parse_actions` がここへ移った）、MCP ツール定義（`crates/automation/src/server.rs`）も含める。batch の形式と MCP ツールの正本は文書ではなく実装にある

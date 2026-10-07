@@ -7,7 +7,8 @@
 | ファイル | 内容 |
 |---|---|
 | README.md, AGENTS.md, docs/*.md | 本家文書（v0.2.0 時点） |
-| apps/photocraft-cli/src/lib.rs | CLI 定義。`parse_actions` が batch のアクションリスト形式の正本 |
+| apps/photocraft-cli/src/lib.rs | CLI 定義。v0.2.0 までは `parse_actions` が batch のアクションリスト形式の正本 |
+| crates/engine/src/automate_cmds.rs | v0.3.0 からのアクションリスト形式の正本（`parse_action` / `parse_steps`） |
 | crates/automation/src/server.rs | MCP ツール定義 |
 | generated/version.txt | `photocraft-cli --version` |
 | generated/commands.json | `photocraft-cli commands --json`（コマンド台帳・params 書式） |
