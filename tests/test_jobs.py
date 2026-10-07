@@ -88,11 +88,15 @@ def test_missing_cli_is_an_error(tmp_path, work):
 
 
 @pytest.mark.integration
-def test_real_release_runs_grade_recipe(tmp_path, repo_root):
-    """本家 v0.2.0 をこの OS 向けに取得し、grade レシピを smoke 入力に適用する（FR-02/03）。"""
-    inst = releases.install("v0.2.0", tmp_path / "bin")
+@pytest.mark.parametrize("which", ["pin", "v0.2.0"])
+def test_real_release_runs_grade_recipe(tmp_path, repo_root, which):
+    """本家の版をこの OS 向けに取得し、grade レシピを smoke 入力に適用する（FR-02/03）。ピンと、その前の v0.2.0 の両方で。"""
+    tag = Repo(repo_root).pinned() if which == "pin" else "v0.2.0"
+    if which == "v0.2.0" and tag == Repo(repo_root).pinned():
+        pytest.skip("ピンが v0.2.0 のときは、ピンの回で確かめている")
+    inst = releases.install(tag, tmp_path / "bin")
     version = photocraft.cli_version(inst.cli)
-    assert version.startswith("photocraft-cli 0.2.0")
+    assert version.startswith(f"photocraft-cli {tag.lstrip('v')} ")
     reg = photocraft.load_registry(inst.cli)
     recipe = repo_root / "actions" / "grade.json"
     v = recipes.validate(recipe.read_text(encoding="utf-8"), reg)
@@ -100,8 +104,7 @@ def test_real_release_runs_grade_recipe(tmp_path, repo_root):
     inp = tmp_path / "in"
     shutil.copytree(repo_root / "samples" / "smoke" / "in", inp)
     mgr = jobs.JobManager(jobs.History(tmp_path / "runs.sqlite"))
-    job = mgr.start_batch(inst.cli, "v0.2.0", version, recipe, "h", inp, tmp_path / "out")
+    job = mgr.start_batch(inst.cli, tag, version, recipe, "h", inp, tmp_path / "out")
     _wait(job, 120)
     assert job.status == "succeeded", job.log_text()
     assert (tmp_path / "out" / "smoke.png").is_file()
-    assert Repo(repo_root).pinned() == "v0.2.0"

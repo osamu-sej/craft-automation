@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 import shutil
 import sys
 import time
@@ -23,7 +24,10 @@ def repo(tmp_path, repo_root, monkeypatch):
     root = tmp_path / "repo"
     for d in ["actions", "samples/smoke/in", "docs/upstream-snapshot"]:
         shutil.copytree(repo_root / d, root / d)
-    shutil.copy(repo_root / ".photocraft-version", root / ".photocraft-version")
+    # 本物のリポジトリのピン・レシピの検証版は、ピン更新のたびに変わる。画面のテストは v0.2.0 固定の状態で行う
+    (root / ".photocraft-version").write_text("v0.2.0\n", encoding="utf-8")
+    grade = root / "actions" / "grade.json"
+    grade.write_text(re.sub(r'"tested_with":\s*"[^"]*"', '"tested_with": "v0.2.0"', grade.read_text(encoding="utf-8")), encoding="utf-8")
     # この OS で直接起動できるモック CLI を「導入済みの版」として置く
     exe = write_mock_cli(root / ".bin" / TAG / "mock" / "photocraft-cli").name
     monkeypatch.setattr(photocraft, "asset_candidates", lambda tag, *a: [photocraft.Asset("mock.zip", f"mock/{exe}", "zip")])
